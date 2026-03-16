@@ -17,7 +17,7 @@ export async function GET() {
         const [backlog, tasks, sprint, agents] = await Promise.all([
           readBacklog().catch(() => []),
           readTasks().catch(() => []),
-          readSprint().catch(() => ({})),
+          readSprint().catch(() => null),
           readAgents().catch(() => []),
         ]);
         const snapshots = [

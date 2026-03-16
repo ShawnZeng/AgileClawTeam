@@ -67,6 +67,18 @@ const SYSTEM_AGENTS: Array<{ id: string; role: AgentRole; workspace: string }> =
     { id: "sm", role: "sm", workspace: "workspace-sm" },
   ];
 
+// Registered team agents — always shown, status overlaid from agents.json
+const DEFAULT_TEAM_AGENTS: Array<{
+  id: string;
+  role: AgentRole;
+  workspace: string;
+}> = [
+  { id: "designer-1", role: "designer", workspace: "workspace-designer-1" },
+  { id: "developer-1", role: "developer", workspace: "workspace-developer-1" },
+  { id: "developer-2", role: "developer", workspace: "workspace-developer-2" },
+  { id: "tester-1", role: "tester", workspace: "workspace-tester-1" },
+];
+
 // ── Doc viewer modal ───────────────────────────────────────────────────────────
 
 function DocModal({
@@ -149,7 +161,8 @@ function AgentCard({
   const [docModal, setDocModal] = useState<string | null>(null);
   const meta = ROLE_META[role];
   const sm = STATUS_META[status];
-  const hasDocs = role === "po" || role === "sm";
+  // All registered agents have SOUL.md; only PO/SM have AGENTS.md
+  const hasAgentsMd = role === "po" || role === "sm";
 
   return (
     <>
@@ -205,21 +218,19 @@ function AgentCard({
 
         {/* Action buttons */}
         <div className="flex items-center gap-1 border-t border-gray-800/60 pt-1.5 mt-auto flex-wrap gap-y-1">
-          {hasDocs && (
-            <>
-              <button
-                onClick={() => setDocModal("SOUL.md")}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                SOUL
-              </button>
-              <button
-                onClick={() => setDocModal("AGENTS.md")}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                AGENTS
-              </button>
-            </>
+          <button
+            onClick={() => setDocModal("SOUL.md")}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            SOUL
+          </button>
+          {hasAgentsMd && (
+            <button
+              onClick={() => setDocModal("AGENTS.md")}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              AGENTS
+            </button>
           )}
           {onOpenChat && (
             <button
@@ -259,11 +270,8 @@ export default function AgentsPanel({
   const agentMap = new Map(agents.map((a) => [a.id, a]));
   const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
-  // Dynamic team agents (not PO/SM)
-  const teamAgents = agents.filter((a) => !["po", "sm"].includes(a.id));
-
   const allCards = [
-    // Always-present system agents
+    // Always-present system agents (PO + SM)
     ...SYSTEM_AGENTS.map((sa) => {
       const state = agentMap.get(sa.id);
       return {
@@ -279,17 +287,22 @@ export default function AgentsPanel({
         isSystemPO: sa.id === "po",
       };
     }),
-    // Dynamically spawned team agents
-    ...teamAgents.map((a) => ({
-      id: a.id,
-      role: a.role,
-      status: a.status,
-      workspace: `workspace-sm/subagents`,
-      currentTask: a.currentTaskId ? taskMap.get(a.currentTaskId) : undefined,
-      lastMessage: a.lastMessage,
-      chatTarget: undefined as string | undefined,
-      isSystemPO: false,
-    })),
+    // Registered team agents (always shown, status from agents.json)
+    ...DEFAULT_TEAM_AGENTS.map((ta) => {
+      const state = agentMap.get(ta.id);
+      return {
+        id: ta.id,
+        role: ta.role,
+        status: (state?.status ?? "offline") as AgentStatus,
+        workspace: ta.workspace,
+        currentTask: state?.currentTaskId
+          ? taskMap.get(state.currentTaskId)
+          : undefined,
+        lastMessage: state?.lastMessage,
+        chatTarget: undefined as string | undefined,
+        isSystemPO: false,
+      };
+    }),
   ];
 
   return (

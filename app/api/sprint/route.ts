@@ -6,6 +6,6 @@ export async function GET() {
     const sprint = await readSprint();
     return NextResponse.json(sprint);
   } catch {
-    return NextResponse.json({}, { status: 200 });
+    return NextResponse.json(null, { status: 200 });
   }
 }

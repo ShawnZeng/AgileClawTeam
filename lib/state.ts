@@ -19,11 +19,12 @@ export const STATE_DIR = SM_STATE_DIR;
 // File → workspace mapping
 const FILE_PATHS: Record<string, string> = {
   "backlog.json": path.join(PO_STATE_DIR, "backlog.json"),
-  "sprint.json":  path.join(SM_STATE_DIR, "sprint.json"),
-  "tasks.json":   path.join(SM_STATE_DIR, "tasks.json"),
-  "agents.json":  path.join(SM_STATE_DIR, "agents.json"),
+  "sprint.json": path.join(SM_STATE_DIR, "sprint.json"),
+  "tasks.json": path.join(SM_STATE_DIR, "tasks.json"),
+  "agents.json": path.join(SM_STATE_DIR, "agents.json"),
 };
-const statePath = (file: string) => FILE_PATHS[file] ?? path.join(SM_STATE_DIR, file);
+const statePath = (file: string) =>
+  FILE_PATHS[file] ?? path.join(SM_STATE_DIR, file);
 
 // ─── Zod schemas ──────────────────────────────────────────────────────────────
 //   nullable() on optional fields because agents write JSON null
@@ -51,7 +52,10 @@ const TaskSchema = z.object({
   status: z.enum(["pending", "in-progress", "done", "blocked"]),
   dependencies: z.array(z.string()),
   sprintId: z.string(),
-  blockerDescription: z.preprocess((v) => v ?? undefined, z.string().optional()),
+  blockerDescription: z.preprocess(
+    (v) => v ?? undefined,
+    z.string().optional(),
+  ),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -65,13 +69,16 @@ const SprintSchema = z.object({
   startedAt: z.preprocess((v) => v ?? undefined, z.string().optional()),
   endedAt: z.preprocess((v) => v ?? undefined, z.string().optional()),
   retrospective: z.preprocess(
-    (v) => v ?? undefined,
-    z.object({
-      keep: z.array(z.string()),
-      drop: z.array(z.string()),
-      puzzle: z.array(z.string()),
-      improvementTaskIds: z.array(z.string()),
-    }).optional(),
+    // SM sometimes writes a plain string summary — treat as undefined for the structured schema
+    (v) => (v == null || typeof v === "string" ? undefined : v),
+    z
+      .object({
+        keep: z.array(z.string()),
+        drop: z.array(z.string()),
+        puzzle: z.array(z.string()),
+        improvementTaskIds: z.array(z.string()),
+      })
+      .optional(),
   ),
 });
 
@@ -80,7 +87,10 @@ const AgentStateSchema = z.object({
   role: z.enum(["po", "sm", "developer", "designer", "tester"]),
   status: z.enum(["idle", "working", "blocked", "waiting", "offline"]),
   currentTaskId: z.preprocess((v) => v ?? undefined, z.string().optional()),
-  subagentSessionKey: z.preprocess((v) => v ?? undefined, z.string().optional()),
+  subagentSessionKey: z.preprocess(
+    (v) => v ?? undefined,
+    z.string().optional(),
+  ),
   lastActivity: z.string(),
   lastMessage: z.preprocess((v) => v ?? undefined, z.string().optional()),
 });
@@ -95,7 +105,11 @@ async function readRaw(file: string): Promise<unknown> {
 /** Unwrap {key: [...]} wrapper if needed, otherwise return as-is */
 function unwrapArray(data: unknown, key: string): unknown[] {
   if (Array.isArray(data)) return data;
-  if (data && typeof data === "object" && key in (data as Record<string, unknown>)) {
+  if (
+    data &&
+    typeof data === "object" &&
+    key in (data as Record<string, unknown>)
+  ) {
     const inner = (data as Record<string, unknown>)[key];
     if (Array.isArray(inner)) return inner;
   }
@@ -117,13 +131,13 @@ async function writeJson<T>(file: string, data: T): Promise<void> {
 
 export async function readBacklog(): Promise<BacklogItem[]> {
   const data = await readRaw("backlog.json");
-  const arr  = unwrapArray(data, "items");
+  const arr = unwrapArray(data, "items");
   return z.array(BacklogItemSchema).parse(arr);
 }
 
 export async function readTasks(): Promise<Task[]> {
   const data = await readRaw("tasks.json");
-  const arr  = unwrapArray(data, "tasks");
+  const arr = unwrapArray(data, "tasks");
   return z.array(TaskSchema).parse(arr);
 }
 
@@ -142,7 +156,7 @@ export async function readSprint(): Promise<Sprint | null> {
 
 export async function readAgents(): Promise<AgentState[]> {
   const data = await readRaw("agents.json");
-  const arr  = unwrapArray(data, "agents");
+  const arr = unwrapArray(data, "agents");
   return z.array(AgentStateSchema).parse(arr);
 }
 
@@ -162,8 +176,12 @@ export async function writeSprint(data: Sprint): Promise<void> {
   try {
     const raw = await readRaw("sprint.json");
     existing = unwrapArray(raw, "sprints");
-  } catch { /* first write */ }
-  const idx = existing.findIndex((s) => (s as Record<string, unknown>).id === data.id);
+  } catch {
+    /* first write */
+  }
+  const idx = existing.findIndex(
+    (s) => (s as Record<string, unknown>).id === data.id,
+  );
   if (idx >= 0) existing[idx] = data;
   else existing.push(data);
   return writeJson("sprint.json", { sprints: existing });

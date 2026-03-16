@@ -94,9 +94,9 @@ export interface SetupCheckResult {
   cliVersion: string | null;
   cliVersionOk: boolean;
   // Gateway — two levels, matching /api/openclaw logic
-  gatewayRunning: boolean;    // HTTP /health OK (process is up)
-  gatewayConnected: boolean;  // WS handshake complete (can make RPC calls)
-  gatewayAddress?: string;    // ws:// address for display
+  gatewayRunning: boolean; // HTTP /health OK (process is up)
+  gatewayConnected: boolean; // WS handshake complete (can make RPC calls)
+  gatewayAddress?: string; // ws:// address for display
   // Agents
   hasAgents: boolean;
   missingAgents: string[];

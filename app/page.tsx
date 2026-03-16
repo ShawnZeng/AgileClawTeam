@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { BacklogItem, Task, Sprint, AgentState, GatewayStatus } from "@/lib/types";
+import type {
+  BacklogItem,
+  Task,
+  Sprint,
+  AgentState,
+  GatewayStatus,
+} from "@/lib/types";
 import AgentsPanel from "@/components/AgentsPanel";
 import BacklogTasksPanel from "@/components/BacklogTasksPanel";
 import POChatPanel from "@/components/POChatPanel";
 import AgentSetup from "@/components/AgentSetup";
+import ConversationViewer from "@/components/ConversationViewer";
 
 interface SSEPayload {
   type: string;
@@ -52,7 +59,9 @@ function GatewayChip({ onSetup }: { onSetup: () => void }) {
       <span className={connecting ? "text-yellow-500" : "text-red-400"}>
         {connecting ? "Gateway 连接中" : "Gateway 未连接"}
       </span>
-      <span className="text-gray-600 hover:text-gray-400 ml-0.5">— 系统检查</span>
+      <span className="text-gray-600 hover:text-gray-400 ml-0.5">
+        — 系统检查
+      </span>
     </button>
   );
 }
@@ -62,10 +71,7 @@ function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <>
       {open && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/40 z-30" onClick={onClose} />
       )}
       <div
         className={`fixed right-0 top-0 bottom-0 w-[420px] z-40 flex flex-col
@@ -77,8 +83,12 @@ function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
           <div className="flex items-center gap-2">
             <span className="text-lg">🙎</span>
             <div>
-              <div className="text-sm font-semibold text-gray-200">给 PO 派活</div>
-              <div className="text-xs text-gray-500">Product Owner · 需求确认与规划</div>
+              <div className="text-sm font-semibold text-gray-200">
+                给 PO 派活
+              </div>
+              <div className="text-xs text-gray-500">
+                Product Owner · 需求确认与规划
+              </div>
             </div>
           </div>
           <button
@@ -97,27 +107,99 @@ function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
+// ── Conversation drawer ─────────────────────────────────────────────────────────
+function ConversationDrawer({
+  open,
+  onClose,
+  agents,
+  agentId,
+  sessionKey,
+}: {
+  open: boolean;
+  onClose: () => void;
+  agents: AgentState[];
+  agentId: string;
+  sessionKey: string | null;
+}) {
+  return (
+    <>
+      {open && (
+        <div className="fixed inset-0 bg-black/40 z-30" onClick={onClose} />
+      )}
+      <div
+        className={`fixed right-0 top-0 bottom-0 w-[480px] z-40 flex flex-col
+          bg-gray-950 border-l border-gray-700 shadow-2xl
+          transition-transform duration-300
+          ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💬</span>
+            <div>
+              <div className="text-sm font-semibold text-gray-200">
+                对话记录
+              </div>
+              <div className="text-xs text-gray-500">
+                查看 Agent 工作沟通过程
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-300 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors"
+            title="关闭"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 p-4">
+          <ConversationViewer
+            agents={agents}
+            initialAgentId={agentId}
+            initialSessionKey={sessionKey ?? undefined}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main dashboard ─────────────────────────────────────────────────────────────
 function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
   const [backlog, setBacklog] = useState<BacklogItem[]>([]);
-  const [tasks, setTasks]     = useState<Task[]>([]);
-  const [sprint, setSprint]   = useState<Sprint | null>(null);
-  const [agents, setAgents]   = useState<AgentState[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [sprint, setSprint] = useState<Sprint | null>(null);
+  const [agents, setAgents] = useState<AgentState[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [convOpen, setConvOpen] = useState(false);
+  const [convAgentId, setConvAgentId] = useState("sm");
+  const [convSessionKey, setConvSessionKey] = useState<string | null>(null);
 
   const handleSSEPayload = useCallback((payload: SSEPayload) => {
     switch (payload.type) {
-      case "backlog": setBacklog(payload.data as BacklogItem[]); break;
-      case "tasks":   setTasks(payload.data as Task[]);          break;
-      case "sprint":  setSprint(payload.data as Sprint);         break;
-      case "agents":  setAgents(payload.data as AgentState[]);   break;
+      case "backlog":
+        setBacklog(payload.data as BacklogItem[]);
+        break;
+      case "tasks":
+        setTasks(payload.data as Task[]);
+        break;
+      case "sprint":
+        setSprint(payload.data as Sprint);
+        break;
+      case "agents":
+        setAgents(payload.data as AgentState[]);
+        break;
     }
   }, []);
 
   useEffect(() => {
     const es = new EventSource("/api/stream");
     es.onmessage = (event: MessageEvent<string>) => {
-      try { handleSSEPayload(JSON.parse(event.data) as SSEPayload); } catch { /* ignore */ }
+      try {
+        handleSSEPayload(JSON.parse(event.data) as SSEPayload);
+      } catch {
+        /* ignore */
+      }
     };
     return () => es.close();
   }, [handleSSEPayload]);
@@ -134,10 +216,14 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
       setTasks(tk ?? []);
       setSprint(sp);
       setAgents(ag ?? []);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  useEffect(() => { void refreshState(); }, [refreshState]);
+  useEffect(() => {
+    void refreshState();
+  }, [refreshState]);
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
@@ -145,10 +231,22 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
       <header className="shrink-0 px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
         <div>
           <h1 className="text-sm font-bold text-gray-100">AgileAgentsTeam</h1>
-          <p className="text-[11px] text-gray-600">Scrum Multi-Agent System · OpenClaw</p>
+          <p className="text-[11px] text-gray-600">
+            Scrum Multi-Agent System · OpenClaw
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <GatewayChip onSetup={onGoToSetup} />
+          <button
+            onClick={() => {
+              setConvAgentId("sm");
+              setConvSessionKey(null);
+              setConvOpen(true);
+            }}
+            className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors"
+          >
+            💬 对话记录
+          </button>
           <button
             onClick={onGoToSetup}
             className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors"
@@ -172,10 +270,24 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
         sprint={sprint}
         agents={agents}
         onDataChange={refreshState}
+        onViewWorkLog={(agentId) => {
+          setConvAgentId(agentId);
+          setConvSessionKey(null);
+          setConvOpen(true);
+        }}
       />
 
       {/* Chat drawer */}
       <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+
+      {/* Conversation drawer */}
+      <ConversationDrawer
+        open={convOpen}
+        onClose={() => setConvOpen(false)}
+        agents={agents}
+        agentId={convAgentId}
+        sessionKey={convSessionKey}
+      />
     </div>
   );
 }
@@ -189,14 +301,20 @@ export default function DashboardPage() {
     return (
       <AgentSetup
         autoAdvance={!manualCheck}
-        onComplete={() => { setManualCheck(false); setAgentsReady(true); }}
+        onComplete={() => {
+          setManualCheck(false);
+          setAgentsReady(true);
+        }}
       />
     );
   }
 
   return (
     <Dashboard
-      onGoToSetup={() => { setManualCheck(true); setAgentsReady(false); }}
+      onGoToSetup={() => {
+        setManualCheck(true);
+        setAgentsReady(false);
+      }}
     />
   );
 }

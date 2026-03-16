@@ -8,13 +8,24 @@ import type { SetupCheckResult, SetupApplyResult } from "@/lib/types";
 
 const INSTALL_DIR = path.join(os.homedir(), ".openclaw");
 const OPENCLAW_DIR = path.resolve(process.cwd(), "..", "openclaw");
-const REQUIRED_AGENTS = ["po", "sm"];
+const REQUIRED_AGENTS = [
+  "po",
+  "sm",
+  "designer-1",
+  "developer-1",
+  "developer-2",
+  "tester-1",
+];
 const MIN_VERSION = "2026.3.12";
 
 // ─── Agent identity & fallback model ─────────────────────────────────────────
 const AGENT_IDENTITY: Record<string, { name: string; emoji: string }> = {
   po: { name: "Product Owner", emoji: "🙎" },
   sm: { name: "Scrum Master", emoji: "🧑‍💼" },
+  "designer-1": { name: "Designer", emoji: "🎨" },
+  "developer-1": { name: "Developer 1", emoji: "👨‍💻" },
+  "developer-2": { name: "Developer 2", emoji: "👨‍💻" },
+  "tester-1": { name: "QA Tester", emoji: "🧪" },
 };
 
 // ─── Version helpers ──────────────────────────────────────────────────────────

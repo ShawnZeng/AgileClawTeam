@@ -72,11 +72,13 @@ function TaskRow({
   taskMap,
   agents,
   isLast,
+  onViewWorkLog,
 }: {
   task: Task;
   taskMap: Map<string, Task>;
   agents: AgentState[];
   isLast: boolean;
+  onViewWorkLog?: (agentId: string) => void;
 }) {
   const assignee = agents.find((a) => a.id === task.assigneeId);
   const deps = task.dependencies
@@ -132,6 +134,20 @@ function TaskRow({
           >
             {effectiveStatus === "waiting" ? "等待依赖" : statusLabel}
           </span>
+
+          {/* Work log button */}
+          {onViewWorkLog && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewWorkLog(task.assigneeId ?? "sm");
+              }}
+              className="text-[10px] text-gray-700 hover:text-blue-400 shrink-0 transition-colors"
+              title="查看工作记录"
+            >
+              💬
+            </button>
+          )}
         </div>
 
         {/* Dependencies notice */}
@@ -167,6 +183,7 @@ function BacklogItemRow({
   onMoveToSprint,
   loadingId,
   onPriorityChange,
+  onViewWorkLog,
 }: {
   item: BacklogItem;
   tasks: Task[];
@@ -176,6 +193,7 @@ function BacklogItemRow({
   onMoveToSprint: () => void;
   loadingId: string | null;
   onPriorityChange: (itemId: string, delta: -1 | 1) => void;
+  onViewWorkLog?: (agentId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const itemTasks = tasks.filter((t) => t.itemId === item.id);
@@ -226,6 +244,7 @@ function BacklogItemRow({
               taskMap={taskMap}
               agents={agents}
               isLast={i === itemTasks.length - 1}
+              onViewWorkLog={onViewWorkLog}
             />
           ))}
         </div>
@@ -305,6 +324,7 @@ interface BacklogTasksPanelProps {
   sprint: Sprint | null;
   agents: AgentState[];
   onDataChange?: () => void;
+  onViewWorkLog?: (agentId: string) => void;
 }
 
 export default function BacklogTasksPanel({
@@ -313,6 +333,7 @@ export default function BacklogTasksPanel({
   sprint,
   agents,
   onDataChange,
+  onViewWorkLog,
 }: BacklogTasksPanelProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
@@ -370,7 +391,9 @@ export default function BacklogTasksPanel({
         {sprintItems.length > 0 && (
           <div className="p-4 space-y-2">
             <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
-              📋 本次迭代待办事项 ({sprintItems.length})
+              {sprint?.status === "done"
+                ? `✅ Sprint 已完成事项 (${sprintItems.length})`
+                : `📋 本次迭代待办事项 (${sprintItems.length})`}
             </div>
             {sprintItems.map((item) => (
               <BacklogItemRow
@@ -383,6 +406,7 @@ export default function BacklogTasksPanel({
                 onMoveToSprint={() => void handleMoveToSprint(item.id)}
                 loadingId={loadingId}
                 onPriorityChange={(id, d) => void handlePriorityChange(id, d)}
+                onViewWorkLog={onViewWorkLog}
               />
             ))}
           </div>
@@ -405,26 +429,29 @@ export default function BacklogTasksPanel({
                 onMoveToSprint={() => void handleMoveToSprint(item.id)}
                 loadingId={loadingId}
                 onPriorityChange={(id, d) => void handlePriorityChange(id, d)}
+                onViewWorkLog={onViewWorkLog}
               />
             ))}
           </div>
         )}
 
         {/* Empty state */}
-        {sprintItems.length === 0 && pendingItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-16 text-gray-600">
-            <div className="text-3xl mb-3">📋</div>
-            <div className="text-sm">暂无待办事项</div>
-            <div className="text-xs mt-1 text-gray-700">
-              点击「给PO派活」开始创建需求
+        {sprintItems.length === 0 &&
+          pendingItems.length === 0 &&
+          doneItems.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center py-16 text-gray-600">
+              <div className="text-3xl mb-3">📋</div>
+              <div className="text-sm">暂无待办事项</div>
+              <div className="text-xs mt-1 text-gray-700">
+                点击「给PO派活」开始创建需求
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Done items (collapsed by default) */}
         {doneItems.length > 0 && (
           <div className="px-4 pb-4">
-            <details className="group">
+            <details className="group" open>
               <summary className="text-[11px] text-gray-700 cursor-pointer hover:text-gray-500 select-none">
                 ✅ 已完成 ({doneItems.length} 项)
               </summary>
