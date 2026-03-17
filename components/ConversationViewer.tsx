@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { AgentMessage, AgentState } from "@/lib/types";
+import type { AgentMessage, AgentState, Task } from "@/lib/types";
 import type { SessionInfo } from "@/lib/openclaw-session";
 
 const ROLE_BUBBLE: Record<string, string> = {
@@ -18,6 +18,14 @@ const ROLE_ICON: Record<string, string> = {
   tester: "🧪",
 };
 
+const TASK_STATUS_LABEL: Record<string, string> = {
+  pending: "待开始",
+  "in-progress": "进行中",
+  done: "已完成",
+  blocked: "阻塞",
+  working: "工作中",
+};
+
 const ALL_AGENT_IDS = [
   "po",
   "sm",
@@ -27,21 +35,115 @@ const ALL_AGENT_IDS = [
   "tester-1",
 ];
 
+const TEAM_AGENT_IDS = new Set([
+  "designer-1",
+  "developer-1",
+  "developer-2",
+  "tester-1",
+]);
+
 interface MessagesResponse {
   agentId: string;
   sessionKey: string | null;
   messages: AgentMessage[];
   sessions: SessionInfo[];
+  fallback?: boolean;
+}
+
+// ── Task info panel (shown for team agents) ────────────────────────────────────
+
+function TaskInfoPanel({
+  agent,
+  task,
+}: {
+  agent?: AgentState;
+  task?: Task;
+}) {
+  if (!agent && !task) return null;
+
+  return (
+    <div className="space-y-2 mb-3">
+      {/* Agent status */}
+      {agent && (
+        <div className="bg-gray-800/60 rounded-lg p-3 space-y-1.5">
+          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+            Agent 状态
+          </div>
+          {agent.lastMessage && (
+            <div className="text-xs text-gray-300 leading-relaxed">
+              {agent.lastMessage}
+            </div>
+          )}
+          {agent.lastActivity && (
+            <div className="text-[10px] text-gray-600">
+              🕐 最后活动：
+              {new Date(agent.lastActivity).toLocaleString("zh-CN", {
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </div>
+          )}
+          {agent.talkingTo && (
+            <div className="text-[10px] text-blue-500">
+              ↔ 正在与 {agent.talkingTo} 通讯
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Current task */}
+      {task && (
+        <div className="bg-blue-950/40 border border-blue-800/30 rounded-lg p-3 space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-mono font-semibold text-blue-400">
+              {task.id}
+            </span>
+            <span className="text-[10px] text-gray-600 bg-gray-800 rounded px-1.5 py-0.5">
+              {TASK_STATUS_LABEL[task.status] ?? task.status}
+            </span>
+            <span className="text-[10px] text-gray-600 bg-gray-800 rounded px-1.5 py-0.5">
+              {task.type}
+            </span>
+          </div>
+          <div className="text-xs font-semibold text-gray-200">
+            {task.title}
+          </div>
+          {task.description && (
+            <div className="text-xs text-gray-400 leading-relaxed">
+              {task.description}
+            </div>
+          )}
+          {task.dependencies.length > 0 && (
+            <div className="text-[10px] text-gray-600">
+              依存：{task.dependencies.join(", ")}
+            </div>
+          )}
+          {task.blockerDescription && (
+            <div className="text-[10px] text-red-400 bg-red-950/40 rounded px-2 py-1">
+              ⚠️ {task.blockerDescription}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ConversationViewer({
   agents,
+  tasks,
   initialAgentId,
   initialSessionKey,
+  initialTaskId,
 }: {
   agents: AgentState[];
+  tasks: Task[];
   initialAgentId?: string;
   initialSessionKey?: string;
+  initialTaskId?: string;
 }) {
   const [selectedAgentId, setSelectedAgentId] = useState<string>(
     initialAgentId ?? "po",
@@ -51,7 +153,19 @@ export default function ConversationViewer({
     initialSessionKey ?? null,
   );
   const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [fallback, setFallback] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  // Track whether user is scrolled to (near) the bottom
+  const isAtBottomRef = useRef(true);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    // Consider "at bottom" if within 60px of the bottom edge
+    isAtBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  }, []);
 
   // When initialAgentId/initialSessionKey props change (e.g. from task button), sync
   useEffect(() => {
@@ -63,12 +177,21 @@ export default function ConversationViewer({
       setSelectedSessionKey(initialSessionKey ?? null);
   }, [initialSessionKey]);
 
+  // When taskId changes, reset session selection so it can auto-pick the task session
+  useEffect(() => {
+    setSelectedSessionKey(null);
+    setMessages([]);
+    setSessions([]);
+    setFallback(false);
+  }, [initialTaskId]);
+
   // Reset session selection when agent changes
   const handleAgentChange = useCallback((id: string) => {
     setSelectedAgentId(id);
     setSelectedSessionKey(null);
     setMessages([]);
     setSessions([]);
+    setFallback(false);
   }, []);
 
   const fetchMessages = useCallback(async () => {
@@ -81,15 +204,24 @@ export default function ConversationViewer({
 
       setSessions(data.sessions ?? []);
       setMessages(data.messages ?? []);
+      setFallback(data.fallback ?? false);
 
-      // Auto-select first session if none selected
-      if (!selectedSessionKey && data.sessionKey) {
-        setSelectedSessionKey(data.sessionKey);
+      // If no session selected yet, pick task-specific session first (if taskId provided)
+      if (!selectedSessionKey) {
+        const taskSession = initialTaskId
+          ? (data.sessions ?? []).find((s) => s.taskId === initialTaskId)
+          : null;
+        const target = taskSession ?? null;
+        if (target) {
+          setSelectedSessionKey(target.key);
+        } else if (data.sessionKey) {
+          setSelectedSessionKey(data.sessionKey);
+        }
       }
     } catch {
       // keep existing on error
     }
-  }, [selectedAgentId, selectedSessionKey]);
+  }, [selectedAgentId, selectedSessionKey, initialTaskId]);
 
   useEffect(() => {
     void fetchMessages();
@@ -97,13 +229,29 @@ export default function ConversationViewer({
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
+  // Auto-scroll to bottom only when already at bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isAtBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
+
+  // When switching agent or session, reset to bottom so new content is visible
+  useEffect(() => {
+    isAtBottomRef.current = true;
+  }, [selectedAgentId, selectedSessionKey]);
 
   const agent = agents.find((a) => a.id === selectedAgentId);
   const roleIcon = agent ? (ROLE_ICON[agent.role] ?? "🤖") : "🤖";
   const currentSession = sessions.find((s) => s.key === selectedSessionKey);
+
+  // Current task for the selected agent
+  const currentTask =
+    agent?.currentTaskId
+      ? tasks.find((t) => t.id === agent.currentTaskId)
+      : undefined;
+
+  const isTeamAgent = TEAM_AGENT_IDS.has(selectedAgentId);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -140,51 +288,91 @@ export default function ConversationViewer({
             >
               {sessions.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.label} ({s.msgCount} 条)
+                  {s.taskId ? "📌 " : ""}{s.label} ({s.msgCount} 条)
                 </option>
               ))}
             </select>
           </div>
         )}
+
+        {/* Fallback notice */}
+        {fallback && (
+          <div className="text-[10px] text-amber-600 bg-amber-950/40 border border-amber-800/30 rounded px-2 py-1.5 leading-relaxed">
+            ⚠️ {selectedAgentId} 暂无专属会话 — 下方显示 SM 巡检记录（含任务派发详情）
+          </div>
+        )}
+
+        {/* Task filter hint */}
+        {!fallback && initialTaskId && (
+          <div className="text-[10px] text-blue-700 bg-blue-950/40 rounded px-2 py-1">
+            🔍 关联任务 {initialTaskId}
+            {sessions.some((s) => s.taskId === initialTaskId)
+              ? " — 已找到专属会话"
+              : " — 暂无专属会话（下次 Sprint 将自动创建）"}
+          </div>
+        )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 min-h-0 pr-1">
-        {messages.length === 0 ? (
-          <div className="text-xs text-gray-700 text-center py-8">
-            {sessions.length === 0
-              ? `${roleIcon} ${selectedAgentId} 暂无对话记录`
-              : currentSession
-                ? `${currentSession.label} 暂无消息`
-                : "请选择会话"}
-          </div>
-        ) : (
-          messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex flex-col gap-1 max-w-[85%] ${
-                msg.role === "user" ? "ml-auto items-end" : "items-start"
-              }`}
-            >
-              <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                <span>
-                  {msg.role === "user" ? "用户" : `${roleIcon} ${msg.agentId}`}
-                </span>
-                <span>
-                  {new Date(msg.timestamp).toISOString().slice(11, 19)}
-                </span>
-              </div>
+      {/* Messages area */}
+      <div
+        ref={scrollAreaRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto min-h-0 pr-1"
+      >
+        {/* Task info panel — always shown for team agents */}
+        {isTeamAgent && (agent?.currentTaskId || agent?.lastMessage) && (
+          <TaskInfoPanel agent={agent} task={currentTask} />
+        )}
+
+        {/* Messages or empty state */}
+        <div className="space-y-3">
+          {messages.length === 0 ? (
+            <div className="text-xs text-gray-700 text-center py-4">
+              {sessions.length === 0
+                ? `${roleIcon} ${selectedAgentId} 暂无对话记录`
+                : currentSession
+                  ? `${currentSession.label} 暂无消息`
+                  : "请选择会话"}
+            </div>
+          ) : (
+            messages.map((msg, i) => (
               <div
-                className={`text-xs px-3 py-2 rounded-lg whitespace-pre-wrap break-words ${
-                  ROLE_BUBBLE[msg.role] ?? ROLE_BUBBLE.assistant
+                key={i}
+                className={`flex flex-col gap-1 max-w-[85%] ${
+                  msg.role === "user" ? "ml-auto items-end" : "items-start"
                 }`}
               >
-                {msg.content}
+                <div className="flex items-center gap-1 text-[10px] text-gray-600">
+                  <span>
+                    {msg.role === "user"
+                      ? fallback
+                        ? "用户/PO"
+                        : "用户"
+                      : fallback
+                        ? "🧑‍💼 sm"
+                        : `${roleIcon} ${msg.agentId}`}
+                  </span>
+                  <span>
+                    {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })}
+                  </span>
+                </div>
+                <div
+                  className={`text-xs px-3 py-2 rounded-lg whitespace-pre-wrap break-words ${
+                    ROLE_BUBBLE[msg.role] ?? ROLE_BUBBLE.assistant
+                  }`}
+                >
+                  {msg.content}
+                </div>
               </div>
-            </div>
-          ))
-        )}
-        <div ref={bottomRef} />
+            ))
+          )}
+          <div ref={bottomRef} />
+        </div>
       </div>
     </div>
   );

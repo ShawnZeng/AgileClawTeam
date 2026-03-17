@@ -14,6 +14,7 @@ export interface SessionInfo {
   label: string;
   msgCount: number;
   latestTimestamp?: string;
+  taskId?: string; // populated if this session is for a specific task (label matches TASK-xxx)
 }
 
 interface JsonlEntry {
@@ -21,11 +22,17 @@ interface JsonlEntry {
   timestamp: string;
   message?: {
     role: string;
-    content: Array<{ type: string; text?: string }>;
+    content: Array<{
+      type: string;
+      text?: string;
+      thinking?: string;
+      name?: string;         // toolCall
+      arguments?: unknown;   // toolCall
+    }>;
   };
 }
 
-type SessionsJsonEntry = { sessionId: string; sessionFile?: string };
+type SessionsJsonEntry = { sessionId: string; sessionFile?: string; label?: string; updatedAt?: number };
 
 function extractText(content: Array<{ type: string; text?: string }>): string {
   return content
@@ -44,7 +51,77 @@ function stripPreamble(text: string): string {
   return text;
 }
 
-function labelSession(key: string, latestTimestamp?: string): string {
+type ContentBlock = NonNullable<JsonlEntry["message"]>["content"][number];
+
+/**
+ * Extract displayable content from an assistant message.
+ * Priority: plain text → thinking (reasoning) → tool call summary.
+ * Cron/patrol sessions typically have only toolCall + thinking blocks.
+ */
+function extractAssistantContent(content: ContentBlock[]): string {
+  // 1. Plain text blocks (normal chat replies)
+  const textContent = content
+    .filter((c) => c.type === "text" && c.text)
+    .map((c) => c.text!)
+    .join("\n")
+    .trim();
+
+  // Collect tool names (just the names, not arguments)
+  const toolNames = content
+    .filter((c) => c.type === "toolCall" && c.name)
+    .map((c) => c.name!);
+
+  if (textContent && toolNames.length > 0) {
+    // Both text and tool calls — append compact tool indicator
+    return `${textContent}\n[🔧 ${toolNames.join(", ")}]`;
+  }
+  if (textContent) return textContent;
+
+  // 2. Thinking blocks (SM reasoning in cron/patrol sessions)
+  const thinking = content
+    .filter((c) => c.type === "thinking" && c.thinking)
+    .map((c) => c.thinking!)
+    .join("\n")
+    .trim();
+  if (thinking) return thinking;
+
+  // 3. Tool call summary (when SM only invokes tools, no text at all)
+  if (toolNames.length > 0) {
+    const reads: string[] = [];
+    const writes: string[] = [];
+    const others: string[] = [];
+    for (const tc of content.filter((c) => c.type === "toolCall" && c.name)) {
+      const fp = (tc.arguments as { file_path?: string } | undefined)
+        ?.file_path;
+      const base = fp ? path.basename(fp) : "?";
+      if (tc.name === "read") reads.push(base);
+      else if (tc.name === "write" || tc.name === "edit") writes.push(base);
+      else others.push(tc.name ?? "?");
+    }
+    const parts: string[] = [];
+    if (reads.length > 0) parts.push(`读取: ${reads.join(", ")}`);
+    if (writes.length > 0) parts.push(`写入: ${writes.join(", ")}`);
+    if (others.length > 0) parts.push(`调用: ${others.join(", ")}`);
+    return `[工具调用]\n${parts.join("\n")}`;
+  }
+
+  return "";
+}
+
+function labelSession(key: string, storedLabel?: string, latestTimestamp?: string): string {
+  // Use the stored label from sessions.json if meaningful
+  if (storedLabel) {
+    // Task-specific session (e.g. label="TASK-001")
+    if (/^TASK-\d+/.test(storedLabel)) return `${storedLabel} 工作记录`;
+    // Retrospective session
+    if (storedLabel === "retrospective") return "Sprint 回顾会";
+    // Sprint status notifications
+    if (storedLabel === "sprint-status") return "Sprint 状态通知";
+    // Generic stored label (e.g. "Cron: Sprint Inspection")
+    if (!storedLabel.startsWith("Cron:")) return storedLabel;
+  }
+
+  // Fallback: derive from session key
   if (key.endsWith(":openai-user:dashboard-operator")) return "与老板的对话";
 
   if (/cron:[^:]+:run:[^:]+$/.test(key)) {
@@ -61,7 +138,6 @@ function labelSession(key: string, latestTimestamp?: string): string {
 
   if (key.endsWith(":main")) return "主会话";
 
-  // agent:{id}:{peer}:{session_suffix}
   const parts = key.split(":");
   if (parts.length >= 3) {
     const peer = parts[2];
@@ -85,17 +161,19 @@ async function parseJsonlMessages(
       if (parsed.type !== "message" || !parsed.message) continue;
 
       const { role, content } = parsed.message;
-      if (role !== "user" && role !== "assistant") continue;
 
-      const rawText = extractText(content);
-      if (!rawText) continue;
-
-      const displayText =
-        role === "user"
-          ? stripPreamble(rawText)
-          : rawText
-              .replace(/<<BACKLOG_ITEM>>[\s\S]*?<<BACKLOG_ITEM_END>>/g, "")
-              .trim();
+      let displayText: string;
+      if (role === "user") {
+        const rawText = extractText(content);
+        if (!rawText) continue;
+        displayText = stripPreamble(rawText);
+      } else if (role === "assistant") {
+        displayText = extractAssistantContent(content)
+          .replace(/<<BACKLOG_ITEM>>[\s\S]*?<<BACKLOG_ITEM_END>>/g, "")
+          .trim();
+      } else {
+        continue; // skip toolResult and other roles
+      }
 
       if (!displayText) continue;
 
@@ -126,8 +204,17 @@ export async function readSessionMessages(
     const entry = sessionsJson[sessionKey];
     if (!entry) return [];
 
-    const jsonlPath =
-      entry.sessionFile ?? path.join(sessionsDir, `${entry.sessionId}.jsonl`);
+    // Prefer sessionId-based path (canonical per-run file).
+    // sessionFile can be a stale inherited pointer from the parent cron definition.
+    const sessionIdPath = path.join(sessionsDir, `${entry.sessionId}.jsonl`);
+    let jsonlPath = sessionIdPath;
+    try {
+      await fs.access(sessionIdPath);
+    } catch {
+      if (entry.sessionFile) jsonlPath = entry.sessionFile;
+      else return [];
+    }
+
     return parseJsonlMessages(jsonlPath, agentId);
   } catch {
     return [];
@@ -145,9 +232,18 @@ export async function listSessions(agentId: string): Promise<SessionInfo[]> {
 
     for (const [key, entry] of Object.entries(sessionsJson)) {
       try {
-        const jsonlPath =
-          entry.sessionFile ??
-          path.join(sessionsDir, `${entry.sessionId}.jsonl`);
+        // Prefer sessionId path; fall back to sessionFile (which can be stale)
+        const sessionIdPath = path.join(
+          sessionsDir,
+          `${entry.sessionId}.jsonl`,
+        );
+        let jsonlPath = sessionIdPath;
+        try {
+          await fs.access(sessionIdPath);
+        } catch {
+          if (entry.sessionFile) jsonlPath = entry.sessionFile;
+          else continue;
+        }
         const raw = await fs.readFile(jsonlPath, "utf-8");
         const lines = raw.split("\n").filter((l) => l.trim());
 
@@ -172,11 +268,14 @@ export async function listSessions(agentId: string): Promise<SessionInfo[]> {
         }
 
         if (msgCount > 0) {
+          const storedLabel = entry.label;
+          const taskId = storedLabel && /^TASK-\d+/.test(storedLabel) ? storedLabel : undefined;
           infos.push({
             key,
-            label: labelSession(key, latestTimestamp),
+            label: labelSession(key, storedLabel, latestTimestamp),
             msgCount,
             latestTimestamp,
+            taskId,
           });
         }
       } catch {
@@ -184,12 +283,18 @@ export async function listSessions(agentId: string): Promise<SessionInfo[]> {
       }
     }
 
-    // Sort: dashboard-operator first, then newest first by timestamp
+    // Sort: dashboard-operator first, then task sessions newest-first, then others newest-first
     infos.sort((a, b) => {
       const aIsMain = a.key.endsWith(":openai-user:dashboard-operator");
       const bIsMain = b.key.endsWith(":openai-user:dashboard-operator");
       if (aIsMain && !bIsMain) return -1;
       if (!aIsMain && bIsMain) return 1;
+      // Task sessions before non-task sessions
+      const aIsTask = !!a.taskId;
+      const bIsTask = !!b.taskId;
+      if (aIsTask && !bIsTask) return -1;
+      if (!aIsTask && bIsTask) return 1;
+      // Newest first
       if (a.latestTimestamp && b.latestTimestamp) {
         return b.latestTimestamp.localeCompare(a.latestTimestamp);
       }

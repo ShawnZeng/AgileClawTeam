@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type {
   BacklogItem,
   Task,
@@ -18,6 +18,8 @@ interface SSEPayload {
   type: string;
   data: unknown;
 }
+
+type PanelMode = "chat" | "conv";
 
 // ── Gateway status chip ────────────────────────────────────────────────────────
 function GatewayChip({ onSetup }: { onSetup: () => void }) {
@@ -60,107 +62,9 @@ function GatewayChip({ onSetup }: { onSetup: () => void }) {
         {connecting ? "Gateway 连接中" : "Gateway 未连接"}
       </span>
       <span className="text-gray-600 hover:text-gray-400 ml-0.5">
-        — 系统检查
+        — 系统配置
       </span>
     </button>
-  );
-}
-
-// ── Chat drawer ────────────────────────────────────────────────────────────────
-function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <>
-      {open && (
-        <div className="fixed inset-0 bg-black/40 z-30" onClick={onClose} />
-      )}
-      <div
-        className={`fixed right-0 top-0 bottom-0 w-[420px] z-40 flex flex-col
-          bg-gray-950 border-l border-gray-700 shadow-2xl
-          transition-transform duration-300
-          ${open ? "translate-x-0" : "translate-x-full"}`}
-      >
-        <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🙎</span>
-            <div>
-              <div className="text-sm font-semibold text-gray-200">
-                给 PO 派活
-              </div>
-              <div className="text-xs text-gray-500">
-                Product Owner · 需求确认与规划
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-300 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors"
-            title="关闭聊天"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="flex-1 min-h-0">
-          <POChatPanel hideHeader />
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── Conversation drawer ─────────────────────────────────────────────────────────
-function ConversationDrawer({
-  open,
-  onClose,
-  agents,
-  agentId,
-  sessionKey,
-}: {
-  open: boolean;
-  onClose: () => void;
-  agents: AgentState[];
-  agentId: string;
-  sessionKey: string | null;
-}) {
-  return (
-    <>
-      {open && (
-        <div className="fixed inset-0 bg-black/40 z-30" onClick={onClose} />
-      )}
-      <div
-        className={`fixed right-0 top-0 bottom-0 w-[480px] z-40 flex flex-col
-          bg-gray-950 border-l border-gray-700 shadow-2xl
-          transition-transform duration-300
-          ${open ? "translate-x-0" : "translate-x-full"}`}
-      >
-        <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">💬</span>
-            <div>
-              <div className="text-sm font-semibold text-gray-200">
-                对话记录
-              </div>
-              <div className="text-xs text-gray-500">
-                查看 Agent 工作沟通过程
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-300 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors"
-            title="关闭"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 p-4">
-          <ConversationViewer
-            agents={agents}
-            initialAgentId={agentId}
-            initialSessionKey={sessionKey ?? undefined}
-          />
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -168,12 +72,47 @@ function ConversationDrawer({
 function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
   const [backlog, setBacklog] = useState<BacklogItem[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [sprint, setSprint] = useState<Sprint | null>(null);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [agents, setAgents] = useState<AgentState[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [convOpen, setConvOpen] = useState(false);
+
+  // Side panel state
+  const [panelMode, setPanelMode] = useState<PanelMode | null>("conv");
   const [convAgentId, setConvAgentId] = useState("sm");
   const [convSessionKey, setConvSessionKey] = useState<string | null>(null);
+  const [convTaskId, setConvTaskId] = useState<string | null>(null);
+
+  // Resizable panel
+  const [panelWidth, setPanelWidth] = useState(520);
+  const isResizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(520);
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      isResizingRef.current = true;
+      startXRef.current = e.clientX;
+      startWidthRef.current = panelWidth;
+      e.preventDefault();
+    },
+    [panelWidth],
+  );
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const delta = startXRef.current - e.clientX;
+      setPanelWidth(Math.max(280, Math.min(860, startWidthRef.current + delta)));
+    };
+    const onMouseUp = () => {
+      isResizingRef.current = false;
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
 
   const handleSSEPayload = useCallback((payload: SSEPayload) => {
     switch (payload.type) {
@@ -184,7 +123,7 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
         setTasks(payload.data as Task[]);
         break;
       case "sprint":
-        setSprint(payload.data as Sprint);
+        setSprints(payload.data as Sprint[]);
         break;
       case "agents":
         setAgents(payload.data as AgentState[]);
@@ -209,12 +148,12 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
       const [bl, tk, sp, ag] = await Promise.all([
         fetch("/api/backlog").then((r) => r.json()) as Promise<BacklogItem[]>,
         fetch("/api/tasks").then((r) => r.json()) as Promise<Task[]>,
-        fetch("/api/sprint").then((r) => r.json()) as Promise<Sprint | null>,
+        fetch("/api/sprint").then((r) => r.json()) as Promise<Sprint[]>,
         fetch("/api/agents").then((r) => r.json()) as Promise<AgentState[]>,
       ]);
       setBacklog(bl ?? []);
       setTasks(tk ?? []);
-      setSprint(sp);
+      setSprints(Array.isArray(sp) ? sp : []);
       setAgents(ag ?? []);
     } catch {
       /* ignore */
@@ -224,6 +163,34 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
   useEffect(() => {
     void refreshState();
   }, [refreshState]);
+
+  const openChat = useCallback(() => {
+    setPanelMode("chat");
+  }, []);
+
+  const openConv = useCallback(
+    (agentId: string, taskId: string | null, sessionKey?: string) => {
+      setConvAgentId(agentId);
+      setConvTaskId(taskId);
+      setConvSessionKey(sessionKey ?? null);
+      setPanelMode("conv");
+    },
+    [],
+  );
+
+  const panelTitle =
+    panelMode === "chat"
+      ? "给 PO 派活"
+      : convTaskId
+        ? `${convTaskId} 工作记录`
+        : "对话记录";
+
+  const panelSub =
+    panelMode === "chat"
+      ? "Product Owner · 需求确认与规划"
+      : convTaskId
+        ? `查看 ${convAgentId} 的任务工作过程`
+        : "查看 Agent 工作沟通过程";
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
@@ -238,11 +205,7 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
         <div className="flex items-center gap-3">
           <GatewayChip onSetup={onGoToSetup} />
           <button
-            onClick={() => {
-              setConvAgentId("sm");
-              setConvSessionKey(null);
-              setConvOpen(true);
-            }}
+            onClick={() => openConv("sm", null)}
             className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors"
           >
             💬 对话记录
@@ -251,43 +214,113 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
             onClick={onGoToSetup}
             className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors"
           >
-            系统检查
+            系统配置
           </button>
         </div>
       </header>
 
-      {/* Agents row */}
+      {/* Agents row — full width */}
       <AgentsPanel
         agents={agents}
         tasks={tasks}
-        onOpenChat={() => setChatOpen(true)}
+        onOpenChat={openChat}
       />
 
-      {/* Backlog + Tasks */}
-      <BacklogTasksPanel
-        backlog={backlog}
-        tasks={tasks}
-        sprint={sprint}
-        agents={agents}
-        onDataChange={refreshState}
-        onViewWorkLog={(agentId) => {
-          setConvAgentId(agentId);
-          setConvSessionKey(null);
-          setConvOpen(true);
-        }}
-      />
+      {/* Main area: content + optional side panel */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Backlog + Tasks */}
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+          <BacklogTasksPanel
+            backlog={backlog}
+            tasks={tasks}
+            sprints={sprints}
+            agents={agents}
+            onDataChange={refreshState}
+            onViewWorkLog={(agentId, taskId) => {
+              openConv(agentId, taskId);
+            }}
+          />
+        </div>
 
-      {/* Chat drawer */}
-      <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+        {/* Drag handle + Persistent side panel */}
+        {panelMode !== null && (
+          <>
+            {/* Drag handle */}
+            <div
+              className="w-1 shrink-0 cursor-col-resize bg-gray-800 hover:bg-blue-500/40 active:bg-blue-500/60 transition-colors"
+              onMouseDown={handleResizeStart}
+              title="拖动调整面板宽度"
+            />
 
-      {/* Conversation drawer */}
-      <ConversationDrawer
-        open={convOpen}
-        onClose={() => setConvOpen(false)}
-        agents={agents}
-        agentId={convAgentId}
-        sessionKey={convSessionKey}
-      />
+            {/* Side panel */}
+            <div
+              className="shrink-0 flex flex-col overflow-hidden bg-gray-950"
+              style={{ width: panelWidth }}
+            >
+            <div className="shrink-0 px-4 py-3 border-b border-gray-800 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base">
+                  {panelMode === "chat" ? "🙎" : "💬"}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-200 truncate">
+                    {panelTitle}
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">{panelSub}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Mode toggle tabs */}
+                <button
+                  onClick={() => setPanelMode("chat")}
+                  className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+                    panelMode === "chat"
+                      ? "bg-violet-700 text-violet-100"
+                      : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  派活
+                </button>
+                <button
+                  onClick={() => setPanelMode("conv")}
+                  className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+                    panelMode === "conv"
+                      ? "bg-blue-700 text-blue-100"
+                      : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  记录
+                </button>
+                <button
+                  onClick={() => setPanelMode(null)}
+                  className="ml-1 text-gray-600 hover:text-gray-300 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 transition-colors text-sm"
+                  title="关闭面板"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Panel content */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {panelMode === "chat" ? (
+                <POChatPanel hideHeader />
+              ) : (
+                <div className="h-full p-3 overflow-hidden flex flex-col">
+                  <ConversationViewer
+                    agents={agents}
+                    tasks={tasks}
+                    initialAgentId={convAgentId}
+                    initialSessionKey={convSessionKey ?? undefined}
+                    initialTaskId={convTaskId ?? undefined}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

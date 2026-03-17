@@ -6,6 +6,7 @@ const STATUS_CONFIG: Record<Task["status"], { label: string; color: string }> =
   {
     pending: { label: "待处理", color: "bg-gray-700 text-gray-300" },
     "in-progress": { label: "进行中", color: "bg-blue-900 text-blue-300" },
+    working: { label: "进行中", color: "bg-blue-900 text-blue-300" },
     done: { label: "完成", color: "bg-green-900 text-green-300" },
     blocked: { label: "阻塞", color: "bg-red-900 text-red-300" },
   };
@@ -98,6 +99,7 @@ export default function TaskBoard({
   const byStatus: Record<Task["status"], Task[]> = {
     pending: [],
     "in-progress": [],
+    working: [],
     done: [],
     blocked: [],
   };

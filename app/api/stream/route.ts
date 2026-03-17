@@ -1,84 +1,85 @@
 import { sseWatcher } from "@/lib/sse-watcher";
-import { readBacklog, readTasks, readSprint, readAgents } from "@/lib/state";
+import { readBacklog, readTasks, readAllSprints, readAgents } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  // Start watcher if not already started
   await sseWatcher.start();
 
   const encoder = new TextEncoder();
 
+  // Hoist mutable state so the cancel() callback can reach it.
+  // ReadableStream.start() returns are IGNORED by the spec —
+  // cleanup must live in cancel().
+  let isClosed = false;
+  let changeHandler: ((fileType: string) => void) | null = null;
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
   const stream = new ReadableStream({
     start(controller) {
-      // Send initial state on connect
+      // Safe enqueue: no-ops after the controller is closed.
+      function enqueue(chunk: string) {
+        if (isClosed) return;
+        try {
+          controller.enqueue(encoder.encode(chunk));
+        } catch {
+          isClosed = true;
+        }
+      }
+
+      // Send full state snapshot on connect
       async function sendInitial() {
-        const [backlog, tasks, sprint, agents] = await Promise.all([
+        const [backlog, tasks, sprints, agents] = await Promise.all([
           readBacklog().catch(() => []),
           readTasks().catch(() => []),
-          readSprint().catch(() => null),
+          readAllSprints().catch(() => []),
           readAgents().catch(() => []),
         ]);
-        const snapshots = [
+        for (const snapshot of [
           { type: "backlog", data: backlog },
-          { type: "tasks", data: tasks },
-          { type: "sprint", data: sprint },
-          { type: "agents", data: agents },
-        ];
-        for (const snapshot of snapshots) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(snapshot)}\n\n`),
-          );
+          { type: "tasks",   data: tasks   },
+          { type: "sprint",  data: sprints },
+          { type: "agents",  data: agents  },
+        ]) {
+          enqueue(`data: ${JSON.stringify(snapshot)}\n\n`);
         }
       }
       sendInitial().catch(console.error);
 
-      // Listen for file changes
-      const handler = (fileType: string) => {
+      // Subscribe to file-change events
+      changeHandler = (fileType: string) => {
         async function sendUpdate() {
           let data: unknown;
           switch (fileType) {
-            case "backlog":
-              data = await readBacklog().catch(() => []);
-              break;
-            case "tasks":
-              data = await readTasks().catch(() => []);
-              break;
-            case "sprint":
-              data = await readSprint().catch(() => ({}));
-              break;
-            case "agents":
-              data = await readAgents().catch(() => []);
-              break;
-            default:
-              return;
+            case "backlog": data = await readBacklog().catch(() => []); break;
+            case "tasks":   data = await readTasks().catch(() => []);   break;
+            case "sprint":  data = await readAllSprints().catch(() => []); break;
+            case "agents":  data = await readAgents().catch(() => []);  break;
+            default: return;
           }
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: fileType, data })}\n\n`,
-            ),
-          );
+          enqueue(`data: ${JSON.stringify({ type: fileType, data })}\n\n`);
         }
         sendUpdate().catch(console.error);
       };
+      sseWatcher.on("state-change", changeHandler);
 
-      sseWatcher.on("state-change", handler);
+      // Heartbeat keeps the HTTP connection alive through proxies / load-balancers
+      heartbeatTimer = setInterval(() => enqueue(": heartbeat\n\n"), 15000);
+    },
 
-      // Heartbeat to keep connection alive
-      const heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(": heartbeat\n\n"));
-        } catch {
-          clearInterval(heartbeat);
-        }
-      }, 15000);
-
-      // Cleanup on close
-      return () => {
-        sseWatcher.off("state-change", handler);
-        clearInterval(heartbeat);
-      };
+    // Called by the Streams API when the client disconnects.
+    // This is the ONLY reliable cleanup hook — start()'s return value is ignored.
+    cancel() {
+      isClosed = true;
+      if (changeHandler) {
+        sseWatcher.off("state-change", changeHandler);
+        changeHandler = null;
+      }
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
     },
   });
 

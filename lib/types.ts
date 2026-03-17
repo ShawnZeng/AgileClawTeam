@@ -20,7 +20,7 @@ export interface Task {
   itemId: string;
   type: "development" | "design" | "testing" | "other";
   assigneeId?: string;
-  status: "pending" | "in-progress" | "done" | "blocked";
+  status: "pending" | "in-progress" | "working" | "done" | "blocked";
   dependencies: string[];
   sprintId: string;
   blockerDescription?: string;
@@ -59,6 +59,7 @@ export interface AgentState {
   role: AgentRole;
   status: AgentStatus;
   currentTaskId?: string;
+  talkingTo?: string; // agent id currently communicating with (e.g. "sm", "developer-1")
   subagentSessionKey?: string;
   lastActivity: string;
   lastMessage?: string;
@@ -110,6 +111,24 @@ export interface SetupApplyResult {
   message: string;
   created?: string[];
   details?: string;
+}
+
+export interface AgileConfig {
+  workareaPath: string;
+  acp: {
+    preferredTool: string;
+    fallbackTool: string;
+    toolPriority: string[];
+  };
+}
+
+export interface AcpCheckResult {
+  acpxInstalled: boolean;
+  acpEnabled: boolean;
+  claudeInstalled: boolean;
+  codexInstalled: boolean;
+  workareaPath: string;
+  toolPriority: string[];
 }
 
 export interface SSEEvent {

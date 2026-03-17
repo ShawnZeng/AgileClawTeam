@@ -49,7 +49,8 @@ const TaskSchema = z.object({
   itemId: z.string(),
   type: z.enum(["development", "design", "testing", "other"]),
   assigneeId: z.preprocess((v) => v ?? undefined, z.string().optional()),
-  status: z.enum(["pending", "in-progress", "done", "blocked"]),
+  // "working" is written by SM/agents in place of "in-progress" — treat as equivalent
+  status: z.enum(["pending", "in-progress", "working", "done", "blocked"]),
   dependencies: z.array(z.string()),
   sprintId: z.string(),
   blockerDescription: z.preprocess(
@@ -87,6 +88,7 @@ const AgentStateSchema = z.object({
   role: z.enum(["po", "sm", "developer", "designer", "tester"]),
   status: z.enum(["idle", "working", "blocked", "waiting", "offline"]),
   currentTaskId: z.preprocess((v) => v ?? undefined, z.string().optional()),
+  talkingTo: z.preprocess((v) => v ?? undefined, z.string().optional()),
   subagentSessionKey: z.preprocess(
     (v) => v ?? undefined,
     z.string().optional(),
@@ -154,6 +156,17 @@ export async function readSprint(): Promise<Sprint | null> {
   return SprintSchema.parse(active ?? arr[arr.length - 1]);
 }
 
+export async function readAllSprints(): Promise<Sprint[]> {
+  const data = await readRaw("sprint.json");
+  const arr = unwrapArray(data, "sprints");
+  if (arr.length === 0) return [];
+  const sprints = arr.map((s) => SprintSchema.parse(s));
+  // Active sprints first, then by sprint number descending
+  const rank = (s: Sprint) =>
+    s.status === "execution" || s.status === "planning" ? 0 : 1;
+  return sprints.sort((a, b) => rank(a) - rank(b) || b.number - a.number);
+}
+
 export async function readAgents(): Promise<AgentState[]> {
   const data = await readRaw("agents.json");
   const arr = unwrapArray(data, "agents");
@@ -189,4 +202,19 @@ export async function writeSprint(data: Sprint): Promise<void> {
 
 export async function writeAgents(data: AgentState[]): Promise<void> {
   return writeJson("agents.json", { agents: data });
+}
+
+export async function readTaskHistory(): Promise<
+  Record<string, { status: string; timestamp: string }[]>
+> {
+  const historyPath = path.join(SM_STATE_DIR, "task-history.json");
+  try {
+    const raw = await fs.readFile(historyPath, "utf-8");
+    return JSON.parse(raw) as Record<
+      string,
+      { status: string; timestamp: string }[]
+    >;
+  } catch {
+    return {};
+  }
 }

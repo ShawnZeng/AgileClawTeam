@@ -27,7 +27,9 @@ const ROLE_BUBBLE = {
   system: "bg-gray-800 text-gray-500 border border-gray-700 rounded",
 } as const;
 
-export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {}) {
+export default function POChatPanel({
+  hideHeader,
+}: { hideHeader?: boolean } = {}) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [pendingMsgs, setPendingMsgs] = useState<PendingMsg[]>([]);
   const [input, setInput] = useState("");
@@ -35,15 +37,6 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // true = user scrolled up and is reading history; don't auto-scroll
-  const userScrolledUpRef = useRef(false);
-
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    userScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 80;
-  }, []);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -72,9 +65,13 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Auto-scroll only when user is already at the bottom
+  // Auto-scroll: read the CURRENT scroll position from the DOM directly —
+  // avoids the race where the scroll event hasn't fired yet but the effect has.
   useEffect(() => {
-    if (!userScrolledUpRef.current) {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom <= 80) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, pendingMsgs]);
@@ -99,7 +96,9 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
         }, 3000);
       } else {
         setPendingMsgs((prev) =>
-          prev.map((p) => (p.id === pendingId ? { ...p, status: "failed" } : p)),
+          prev.map((p) =>
+            p.id === pendingId ? { ...p, status: "failed" } : p,
+          ),
         );
       }
     } catch {
@@ -120,11 +119,15 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
 
     // Immediately show message in chat and clear input
     setInput("");
-    userScrolledUpRef.current = false;
     setPendingMsgs((prev) => [
       ...prev,
       { id: pendingId, content: trimmed, timestamp: now, status: "sending" },
     ]);
+    // Unconditionally scroll to bottom when user sends a message
+    setTimeout(
+      () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+      0,
+    );
 
     await doSend(trimmed, pendingId);
   };
@@ -143,34 +146,44 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
     }
   };
 
-  // Pending messages to display — hide "ok" ones already confirmed by server
+  // Auto-grow textarea as content changes; shrink back when cleared
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
+
+  // Pending messages to display — hide any that the server has already confirmed,
+  // regardless of pending status (fixes race where server poll arrives before API response)
   const pendingToShow = pendingMsgs.filter(
     (p) =>
-      p.status !== "ok" ||
+      p.status === "failed" ||
       !messages.some((m) => m.role === "user" && m.content === p.content),
   );
 
   const isEmpty = messages.length === 0 && pendingToShow.length === 0;
 
   return (
-    <div className={`flex flex-col h-full overflow-hidden ${hideHeader ? "bg-transparent" : "bg-gray-900 border border-gray-700 rounded-lg"}`}>
+    <div
+      className={`flex flex-col h-full overflow-hidden ${hideHeader ? "bg-transparent" : "bg-gray-900 border border-gray-700 rounded-lg"}`}
+    >
       {/* Header */}
       {!hideHeader && (
-      <div className="px-4 py-3 border-b border-gray-700 flex items-center gap-2 shrink-0">
-        <span className="text-lg">🙎</span>
-        <div>
-          <h2 className="text-sm font-semibold text-gray-200">与 PO 对话</h2>
-          <p className="text-xs text-gray-500">
-            Product Owner · 需求确认与规划
-          </p>
+        <div className="px-4 py-3 border-b border-gray-700 flex items-center gap-2 shrink-0">
+          <span className="text-lg">🙎</span>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-200">与 PO 对话</h2>
+            <p className="text-xs text-gray-500">
+              Product Owner · 需求确认与规划
+            </p>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Message list */}
       <div
         ref={scrollContainerRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
       >
         {isEmpty ? (
@@ -191,7 +204,11 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                   {msg.role === "user" ? <span>你</span> : <span>🙎 PO</span>}
-                  <span>{new Date(msg.timestamp).toLocaleTimeString("zh-CN", { hour12: false })}</span>
+                  <span>
+                    {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
+                      hour12: false,
+                    })}
+                  </span>
                 </div>
                 <div
                   className={`text-sm px-3 py-2 rounded-xl whitespace-pre-wrap break-words ${
@@ -205,10 +222,17 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
 
             {/* Pending local messages */}
             {pendingToShow.map((p) => (
-              <div key={p.id} className="flex flex-col gap-1 max-w-[80%] ml-auto items-end">
+              <div
+                key={p.id}
+                className="flex flex-col gap-1 max-w-[80%] ml-auto items-end"
+              >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                   <span>你</span>
-                  <span>{new Date(p.timestamp).toLocaleTimeString("zh-CN", { hour12: false })}</span>
+                  <span>
+                    {new Date(p.timestamp).toLocaleTimeString("zh-CN", {
+                      hour12: false,
+                    })}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Status indicator to the left of the bubble */}
@@ -264,13 +288,14 @@ export default function POChatPanel({ hideHeader }: { hideHeader?: boolean } = {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="输入消息... (Enter 发送，Shift+Enter 换行)"
-            rows={2}
-            className="flex-1 bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-500 placeholder-gray-600"
+            rows={1}
+            style={{ minHeight: "2.75rem", maxHeight: "200px" }}
+            className="flex-1 bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2 resize-y overflow-y-auto focus:outline-none focus:border-blue-500 placeholder-gray-600"
           />
           <button
             onClick={() => void send()}
             disabled={!input.trim() || sending}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors h-[3.25rem] shrink-0"
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end shrink-0"
           >
             发送
           </button>

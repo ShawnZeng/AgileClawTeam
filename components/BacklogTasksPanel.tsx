@@ -1,9 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import type { BacklogItem, Task, Sprint, AgentState } from "@/lib/types";
+import { useState, useEffect } from "react";
+import type { BacklogItem, Task, Sprint, AgentState, AgentMessage } from "@/lib/types";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
+
+type TaskHistoryEntry = { status: string; timestamp: string };
+type TaskHistoryMap = Record<string, TaskHistoryEntry[]>;
+
+const HISTORY_STATUS_LABEL: Record<string, string> = {
+  pending: "创建",
+  "in-progress": "进行",
+  done: "✓完成",
+  blocked: "阻塞",
+};
+
+function fmtHistoryTs(iso: string): string {
+  return new Date(iso).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 const SPRINT_STATUS_BADGE: Record<string, string> = {
   planning: "bg-violet-800/60 text-violet-300",
@@ -27,15 +47,18 @@ const TASK_TYPE_ICON: Record<Task["type"], string> = {
   other: "📌",
 };
 
+// "working" is written by SM/agents as an alias for "in-progress"
 const TASK_STATUS_BADGE: Record<Task["status"], string> = {
   pending: "bg-gray-800 text-gray-500",
   "in-progress": "bg-blue-800/70 text-blue-300",
+  working: "bg-blue-800/70 text-blue-300",
   done: "bg-green-800/60 text-green-300",
   blocked: "bg-red-800/60 text-red-300",
 };
 const TASK_STATUS_LABEL: Record<Task["status"], string> = {
   pending: "待开始",
   "in-progress": "进行中",
+  working: "进行中",
   done: "完成",
   blocked: "阻塞",
 };
@@ -46,16 +69,6 @@ const ITEM_PRIORITY_COLORS = [
   "bg-yellow-900/60 text-yellow-300 border-yellow-800/60",
   "bg-gray-800 text-gray-500 border-gray-700",
 ];
-const ITEM_STATUS_LABEL: Record<BacklogItem["status"], string> = {
-  pending: "待办",
-  "in-progress": "进行中",
-  done: "完成",
-};
-const ITEM_STATUS_COLOR: Record<BacklogItem["status"], string> = {
-  pending: "text-gray-500",
-  "in-progress": "text-blue-400",
-  done: "text-green-400",
-};
 
 const ROLE_EMOJI: Record<string, string> = {
   po: "🙎",
@@ -73,12 +86,14 @@ function TaskRow({
   agents,
   isLast,
   onViewWorkLog,
+  history,
 }: {
   task: Task;
   taskMap: Map<string, Task>;
   agents: AgentState[];
   isLast: boolean;
-  onViewWorkLog?: (agentId: string) => void;
+  onViewWorkLog?: (agentId: string, taskId: string) => void;
+  history?: TaskHistoryEntry[];
 }) {
   const assignee = agents.find((a) => a.id === task.assigneeId);
   const deps = task.dependencies
@@ -87,36 +102,32 @@ function TaskRow({
   const blockedByDep = deps.some((d) => d.status !== "done");
   const effectiveStatus =
     task.status === "pending" && blockedByDep ? "waiting" : task.status;
-  const statusBadge = TASK_STATUS_BADGE[task.status];
-  const statusLabel = TASK_STATUS_LABEL[task.status];
+  const statusBadge =
+    TASK_STATUS_BADGE[task.status] ?? "bg-gray-800 text-gray-500";
+  const statusLabel = TASK_STATUS_LABEL[task.status] ?? task.status;
 
   return (
-    <div className="flex items-start gap-2 group">
+    <div className={`flex items-start gap-2 group ${isLast ? "" : "mb-1"}`}>
       {/* Tree line */}
       <div
         className="flex flex-col items-center shrink-0 mt-1"
         style={{ width: 16 }}
       >
         <div className="w-px bg-gray-700 flex-1" style={{ minHeight: 8 }} />
-        <div className={`w-2 h-px bg-gray-700 ${isLast ? "" : ""}`} />
+        <div className="w-2 h-px bg-gray-700" />
       </div>
 
       <div className="flex-1 min-w-0 pb-1.5">
         <div className="flex items-start gap-2 flex-wrap">
-          {/* Type icon */}
           <span className="text-xs shrink-0 mt-0.5" title={task.type}>
             {TASK_TYPE_ICON[task.type]}
           </span>
-
-          {/* Task id + title */}
           <div className="flex-1 min-w-0">
             <span className="text-[10px] text-gray-600 font-mono mr-1">
               {task.id}
             </span>
             <span className="text-xs text-gray-300">{task.title}</span>
           </div>
-
-          {/* Assignee chip */}
           {assignee ? (
             <div className="flex items-center gap-1 shrink-0 bg-gray-800 rounded px-1.5 py-0.5">
               <span className="text-[10px]">
@@ -127,20 +138,16 @@ function TaskRow({
           ) : (
             <span className="text-[10px] text-gray-700 shrink-0">未分配</span>
           )}
-
-          {/* Status badge */}
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${statusBadge}`}
           >
             {effectiveStatus === "waiting" ? "等待依赖" : statusLabel}
           </span>
-
-          {/* Work log button */}
           {onViewWorkLog && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onViewWorkLog(task.assigneeId ?? "sm");
+                onViewWorkLog(task.assigneeId ?? "sm", task.id);
               }}
               className="text-[10px] text-gray-700 hover:text-blue-400 shrink-0 transition-colors"
               title="查看工作记录"
@@ -150,7 +157,6 @@ function TaskRow({
           )}
         </div>
 
-        {/* Dependencies notice */}
         {deps.length > 0 && blockedByDep && (
           <div className="text-[10px] text-yellow-700 mt-0.5 pl-5">
             ↳ 等待:{" "}
@@ -160,11 +166,32 @@ function TaskRow({
               .join(", ")}
           </div>
         )}
-
-        {/* Blocked reason */}
         {task.status === "blocked" && task.blockerDescription && (
           <div className="text-[10px] text-red-500 mt-0.5 pl-5 truncate">
             ⛔ {task.blockerDescription}
+          </div>
+        )}
+
+        {/* Status timeline — auxiliary, low-emphasis */}
+        {history && history.length > 0 && (
+          <div className="text-[10px] text-gray-700 mt-0.5 pl-5 flex items-center gap-1 flex-wrap leading-tight">
+            {history.map((e, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <span className="text-gray-800">·</span>}
+                <span
+                  className={
+                    e.status === "done"
+                      ? "text-green-900"
+                      : e.status === "blocked"
+                        ? "text-red-900"
+                        : ""
+                  }
+                >
+                  {HISTORY_STATUS_LABEL[e.status] ?? e.status}
+                </span>
+                <span>{fmtHistoryTs(e.timestamp)}</span>
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -184,6 +211,8 @@ function BacklogItemRow({
   loadingId,
   onPriorityChange,
   onViewWorkLog,
+  defaultExpanded,
+  taskHistory,
 }: {
   item: BacklogItem;
   tasks: Task[];
@@ -193,20 +222,41 @@ function BacklogItemRow({
   onMoveToSprint: () => void;
   loadingId: string | null;
   onPriorityChange: (itemId: string, delta: -1 | 1) => void;
-  onViewWorkLog?: (agentId: string) => void;
+  onViewWorkLog?: (agentId: string, taskId: string) => void;
+  defaultExpanded?: boolean;
+  taskHistory: TaskHistoryMap;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? true);
   const itemTasks = tasks.filter((t) => t.itemId === item.id);
   const doneTasks = itemTasks.filter((t) => t.status === "done").length;
-  const priorIdx = Math.min(item.priority - 1, ITEM_PRIORITY_COLORS.length - 1);
+  const priorIdx = Math.min(
+    item.priority - 1,
+    ITEM_PRIORITY_COLORS.length - 1,
+  );
   const priorColor =
     ITEM_PRIORITY_COLORS[priorIdx] ??
     ITEM_PRIORITY_COLORS[ITEM_PRIORITY_COLORS.length - 1];
   const loading = loadingId === item.id;
 
+  // Derive display status: all tasks done → treat as done regardless of item.status
+  const allTasksDone =
+    itemTasks.length > 0 && doneTasks === itemTasks.length;
+  const displayStatus = allTasksDone ? "done" : item.status;
+  const statusColor =
+    displayStatus === "done"
+      ? "text-green-600"
+      : displayStatus === "in-progress"
+        ? "text-blue-400"
+        : "text-gray-500";
+  const statusLabel =
+    displayStatus === "done"
+      ? "完成"
+      : displayStatus === "in-progress"
+        ? "进行中"
+        : "待办";
+
   return (
     <div className="border border-gray-800 rounded-lg overflow-hidden">
-      {/* Header row */}
       <div
         className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-800/40 transition-colors"
         onClick={() => setExpanded((v) => !v)}
@@ -224,17 +274,14 @@ function BacklogItemRow({
             {doneTasks}/{itemTasks.length} 任务
           </span>
         )}
-        <span
-          className={`text-[10px] shrink-0 ${ITEM_STATUS_COLOR[item.status]}`}
-        >
-          {ITEM_STATUS_LABEL[item.status]}
+        <span className={`text-[10px] shrink-0 ${statusColor}`}>
+          {statusLabel}
         </span>
         <span className="text-gray-700 text-[10px] shrink-0">
           {expanded ? "▲" : "▼"}
         </span>
       </div>
 
-      {/* Task list */}
       {expanded && itemTasks.length > 0 && (
         <div className="px-3 pb-2 pt-1 border-t border-gray-800/60 bg-gray-900/40">
           {itemTasks.map((task, i) => (
@@ -245,12 +292,12 @@ function BacklogItemRow({
               agents={agents}
               isLast={i === itemTasks.length - 1}
               onViewWorkLog={onViewWorkLog}
+              history={taskHistory[task.id]}
             />
           ))}
         </div>
       )}
 
-      {/* Action bar */}
       <div className="flex items-center gap-2 px-3 py-1 border-t border-gray-800/40 bg-gray-900/30">
         <span className="text-[10px] font-mono text-gray-700">{item.id}</span>
         <button
@@ -283,34 +330,247 @@ function BacklogItemRow({
   );
 }
 
-// ── Sprint header ──────────────────────────────────────────────────────────────
+// ── Sprint section ─────────────────────────────────────────────────────────────
 
-function SprintHeader({ sprint }: { sprint: Sprint }) {
+function SprintSection({
+  sprint,
+  backlog,
+  tasks,
+  taskMap,
+  agents,
+  loadingId,
+  onMoveToSprint,
+  onPriorityChange,
+  onViewWorkLog,
+  patrolSessions,
+  taskHistory,
+}: {
+  sprint: Sprint;
+  backlog: BacklogItem[];
+  tasks: Task[];
+  taskMap: Map<string, Task>;
+  agents: AgentState[];
+  loadingId: string | null;
+  onMoveToSprint: (itemId: string) => void;
+  onPriorityChange: (itemId: string, delta: -1 | 1) => void;
+  onViewWorkLog?: (agentId: string, taskId: string) => void;
+  patrolSessions: PatrolSession[];
+  taskHistory: TaskHistoryMap;
+}) {
+  const isDone = sprint.status === "done";
+  const [sectionExpanded, setSectionExpanded] = useState(!isDone);
+
   const badge =
     SPRINT_STATUS_BADGE[sprint.status] ?? "bg-gray-800 text-gray-400";
   const label = SPRINT_STATUS_LABEL[sprint.status] ?? sprint.status;
+
+  const committedItems = sprint.committedItemIds
+    .map((id) => backlog.find((b) => b.id === id))
+    .filter(Boolean) as BacklogItem[];
+
+  const sprintTasks = tasks.filter((t) => t.sprintId === sprint.id);
+  const doneTasks = sprintTasks.filter((t) => t.status === "done").length;
+
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-800/60 border-b border-gray-700/60 shrink-0">
-      <span className="text-xs font-bold text-gray-300">
-        🏃 Sprint {sprint.number}
-      </span>
-      <span
-        className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${badge}`}
+    <div className="border border-gray-700/60 rounded-xl overflow-hidden mb-3">
+      {/* Sprint header */}
+      <div
+        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+          isDone
+            ? "bg-gray-800/40 hover:bg-gray-800/60"
+            : "bg-gray-800/70 hover:bg-gray-800"
+        }`}
+        onClick={() => setSectionExpanded((v) => !v)}
       >
-        {label}
-      </span>
-      {sprint.goal && (
+        <span className="text-xs font-bold text-gray-300">
+          {isDone ? "✅" : "🏃"} Sprint {sprint.number}
+        </span>
         <span
-          className="text-xs text-gray-500 truncate flex-1"
-          title={sprint.goal}
+          className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${badge}`}
         >
-          {sprint.goal}
+          {label}
         </span>
+        {sprint.goal && (
+          <span
+            className="text-xs text-gray-500 truncate flex-1"
+            title={sprint.goal}
+          >
+            {sprint.goal}
+          </span>
+        )}
+        {sprintTasks.length > 0 && (
+          <span className="text-[10px] text-gray-600 shrink-0">
+            {doneTasks}/{sprintTasks.length} 任务完成
+          </span>
+        )}
+        {sprint.startedAt && (
+          <span className="text-[10px] text-gray-700 shrink-0">
+            {new Date(sprint.startedAt).toLocaleDateString("zh-CN")} 起
+          </span>
+        )}
+        <span className="text-gray-600 text-[10px] shrink-0">
+          {sectionExpanded ? "▲" : "▼"}
+        </span>
+      </div>
+
+      {sectionExpanded && (
+        <div className="p-3 space-y-2 bg-gray-900/20">
+          {committedItems.length === 0 ? (
+            <div className="text-[11px] text-gray-700 px-2 py-1">
+              暂无关联事项
+            </div>
+          ) : (
+            committedItems.map((item) => (
+              <BacklogItemRow
+                key={item.id}
+                item={item}
+                tasks={tasks}
+                taskMap={taskMap}
+                agents={agents}
+                inSprint={true}
+                onMoveToSprint={() => onMoveToSprint(item.id)}
+                loadingId={loadingId}
+                onPriorityChange={onPriorityChange}
+                onViewWorkLog={onViewWorkLog}
+                defaultExpanded={!isDone}
+                taskHistory={taskHistory}
+              />
+            ))
+          )}
+          <SprintPatrolSubsection sprint={sprint} patrolSessions={patrolSessions} />
+        </div>
       )}
-      {sprint.startedAt && (
-        <span className="text-[10px] text-gray-700 shrink-0">
-          {new Date(sprint.startedAt).toLocaleDateString("zh-CN")} 起
+    </div>
+  );
+}
+
+// ── SM Patrol Log ──────────────────────────────────────────────────────────────
+
+interface PatrolSession {
+  key: string;
+  label: string;
+  latestTimestamp?: string;
+}
+
+function PatrolSessionRow({ session }: { session: PatrolSession }) {
+  const [expanded, setExpanded] = useState(false);
+  const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = async () => {
+    if (!expanded && messages.length === 0) {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/messages?agentId=sm&sessionKey=${encodeURIComponent(session.key)}`,
+        );
+        const data = (await res.json()) as { messages: AgentMessage[] };
+        setMessages(data.messages);
+      } catch {
+        /* ignore */
+      }
+      setLoading(false);
+    }
+    setExpanded((v) => !v);
+  };
+
+  return (
+    <div className="border border-gray-800/60 rounded-lg overflow-hidden">
+      <div
+        className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-gray-800/30 transition-colors"
+        onClick={() => void toggle()}
+      >
+        <span className="text-[10px] text-gray-500 flex-1 truncate">
+          {session.label}
         </span>
+        <span className="text-gray-700 text-[10px] shrink-0">
+          {expanded ? "▲" : "▼"}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-gray-800/60 bg-gray-900/40 px-3 py-2 max-h-64 overflow-y-auto space-y-2">
+          {loading ? (
+            <div className="text-[10px] text-gray-600 py-1">加载中...</div>
+          ) : messages.length === 0 ? (
+            <div className="text-[10px] text-gray-700 py-1">无内容</div>
+          ) : (
+            messages.map((msg, i) => (
+              <div key={i}>
+                <div className="text-[9px] mb-0.5">
+                  <span
+                    className={
+                      msg.role === "assistant" ? "text-blue-600" : "text-gray-700"
+                    }
+                  >
+                    {msg.role === "assistant" ? "SM" : "系统"}
+                  </span>
+                  {msg.timestamp && (
+                    <span className="ml-1 text-gray-700">
+                      {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`text-[10px] whitespace-pre-wrap break-words leading-relaxed ${
+                    msg.role === "assistant" ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Patrol runs relevant to a sprint, embedded at the bottom of SprintSection. */
+function SprintPatrolSubsection({
+  sprint,
+  patrolSessions,
+}: {
+  sprint: Sprint;
+  patrolSessions: PatrolSession[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const startMs = sprint.startedAt ? new Date(sprint.startedAt).getTime() : 0;
+  const endMs =
+    sprint.endedAt ? new Date(sprint.endedAt).getTime() : Infinity;
+
+  const relevant = patrolSessions.filter((s) => {
+    if (!s.latestTimestamp) return false;
+    const ts = new Date(s.latestTimestamp).getTime();
+    return ts >= startMs && ts <= endMs;
+  });
+
+  if (relevant.length === 0) return null;
+
+  return (
+    <div className="border-t border-gray-800/50 mt-2 pt-1">
+      <div
+        className="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-gray-800/20 rounded transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <span className="text-[10px] text-gray-600 flex-1">
+          🔍 SM 巡检 ({relevant.length})
+        </span>
+        <span className="text-[10px] text-gray-700 shrink-0">
+          {expanded ? "▲" : "▼"}
+        </span>
+      </div>
+      {expanded && (
+        <div className="px-2 pb-2 space-y-1">
+          {relevant.map((s) => (
+            <PatrolSessionRow key={s.key} session={s} />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -321,34 +581,61 @@ function SprintHeader({ sprint }: { sprint: Sprint }) {
 interface BacklogTasksPanelProps {
   backlog: BacklogItem[];
   tasks: Task[];
-  sprint: Sprint | null;
+  sprints: Sprint[];
   agents: AgentState[];
   onDataChange?: () => void;
-  onViewWorkLog?: (agentId: string) => void;
+  onViewWorkLog?: (agentId: string, taskId: string) => void;
 }
 
 export default function BacklogTasksPanel({
   backlog,
   tasks,
-  sprint,
+  sprints,
   agents,
   onDataChange,
   onViewWorkLog,
 }: BacklogTasksPanelProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [patrolSessions, setPatrolSessions] = useState<PatrolSession[]>([]);
+  const [taskHistory, setTaskHistory] = useState<TaskHistoryMap>({});
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/patrol");
+        const data = (await res.json()) as { sessions: PatrolSession[] };
+        setPatrolSessions(data.sessions ?? []);
+      } catch {
+        /* ignore */
+      }
+    };
+    void load();
+    const t = setInterval(() => void load(), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/task-history");
+        const data = (await res.json()) as TaskHistoryMap;
+        setTaskHistory(data);
+      } catch {
+        /* ignore */
+      }
+    };
+    void load();
+    const t = setInterval(() => void load(), 10000);
+    return () => clearInterval(t);
+  }, []);
 
   const taskMap = new Map(tasks.map((t) => [t.id, t]));
-  const committedIds = sprint?.committedItemIds ?? [];
-  const sortedBacklog = [...backlog].sort((a, b) => a.priority - b.priority);
-  const sprintItems = sortedBacklog.filter((item) =>
-    committedIds.includes(item.id),
-  );
-  const pendingItems = sortedBacklog.filter(
-    (item) => !item.sprintId && item.status !== "done",
-  );
-  const doneItems = sortedBacklog.filter(
-    (item) => item.status === "done" && !committedIds.includes(item.id),
-  );
+
+  // Items not committed to any sprint
+  const allCommittedIds = new Set(sprints.flatMap((s) => s.committedItemIds));
+  const unplannedItems = [...backlog]
+    .filter((item) => !allCommittedIds.has(item.id))
+    .sort((a, b) => a.priority - b.priority);
 
   const handleMoveToSprint = async (itemId: string) => {
     setLoadingId(itemId);
@@ -381,100 +668,70 @@ export default function BacklogTasksPanel({
     }
   };
 
+  const isEmpty = sprints.length === 0 && backlog.length === 0;
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Sprint header */}
-      {sprint && <SprintHeader sprint={sprint} />}
-
-      <div className="flex-1 overflow-y-auto">
-        {/* Sprint items */}
-        {sprintItems.length > 0 && (
-          <div className="p-4 space-y-2">
-            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
-              {sprint?.status === "done"
-                ? `✅ Sprint 已完成事项 (${sprintItems.length})`
-                : `📋 本次迭代待办事项 (${sprintItems.length})`}
+      <div className="flex-1 overflow-y-auto p-4">
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-16 text-gray-600">
+            <div className="text-3xl mb-3">📋</div>
+            <div className="text-sm">暂无待办事项</div>
+            <div className="text-xs mt-1 text-gray-700">
+              点击「给PO派活」开始创建需求
             </div>
-            {sprintItems.map((item) => (
-              <BacklogItemRow
-                key={item.id}
-                item={item}
+          </div>
+        ) : (
+          <>
+            {/* All sprints — active first (sorted by readAllSprints) */}
+            {sprints.map((sprint) => (
+              <SprintSection
+                key={sprint.id}
+                sprint={sprint}
+                backlog={backlog}
                 tasks={tasks}
                 taskMap={taskMap}
                 agents={agents}
-                inSprint={committedIds.includes(item.id)}
-                onMoveToSprint={() => void handleMoveToSprint(item.id)}
                 loadingId={loadingId}
+                onMoveToSprint={(id) => void handleMoveToSprint(id)}
                 onPriorityChange={(id, d) => void handlePriorityChange(id, d)}
                 onViewWorkLog={onViewWorkLog}
+                patrolSessions={patrolSessions}
+                taskHistory={taskHistory}
               />
             ))}
-          </div>
-        )}
 
-        {/* Pending unplanned items */}
-        {pendingItems.length > 0 && (
-          <div className="px-4 pb-4 space-y-2">
-            <div className="text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-2">
-              🗂 待规划 ({pendingItems.length})
-            </div>
-            {pendingItems.map((item) => (
-              <BacklogItemRow
-                key={item.id}
-                item={item}
-                tasks={tasks}
-                taskMap={taskMap}
-                agents={agents}
-                inSprint={false}
-                onMoveToSprint={() => void handleMoveToSprint(item.id)}
-                loadingId={loadingId}
-                onPriorityChange={(id, d) => void handlePriorityChange(id, d)}
-                onViewWorkLog={onViewWorkLog}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {sprintItems.length === 0 &&
-          pendingItems.length === 0 &&
-          doneItems.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-center py-16 text-gray-600">
-              <div className="text-3xl mb-3">📋</div>
-              <div className="text-sm">暂无待办事项</div>
-              <div className="text-xs mt-1 text-gray-700">
-                点击「给PO派活」开始创建需求
+            {/* Unplanned backlog items */}
+            {unplannedItems.length > 0 && (
+              <div className="border border-gray-800 rounded-xl overflow-hidden">
+                <div className="px-4 py-2.5 bg-gray-800/30 border-b border-gray-800/60">
+                  <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                    🗂 待规划 Backlog ({unplannedItems.length} 项)
+                  </span>
+                </div>
+                <div className="p-3 space-y-2">
+                  {unplannedItems.map((item) => (
+                    <BacklogItemRow
+                      key={item.id}
+                      item={item}
+                      tasks={tasks}
+                      taskMap={taskMap}
+                      agents={agents}
+                      inSprint={false}
+                      onMoveToSprint={() => void handleMoveToSprint(item.id)}
+                      loadingId={loadingId}
+                      onPriorityChange={(id, d) =>
+                        void handlePriorityChange(id, d)
+                      }
+                      onViewWorkLog={onViewWorkLog}
+                      defaultExpanded={true}
+                      taskHistory={taskHistory}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-        {/* Done items (collapsed by default) */}
-        {doneItems.length > 0 && (
-          <div className="px-4 pb-4">
-            <details className="group" open>
-              <summary className="text-[11px] text-gray-700 cursor-pointer hover:text-gray-500 select-none">
-                ✅ 已完成 ({doneItems.length} 项)
-              </summary>
-              <div className="mt-2 space-y-1.5">
-                {doneItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 px-2 py-1 rounded opacity-50"
-                  >
-                    <span className="text-[10px] font-mono text-gray-700">
-                      {item.id}
-                    </span>
-                    <span className="text-xs text-gray-600 truncate">
-                      {item.title}
-                    </span>
-                    <span className="text-[10px] text-green-700 shrink-0">
-                      完成
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
