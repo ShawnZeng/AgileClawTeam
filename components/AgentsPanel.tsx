@@ -2,20 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import type { AgentRole, AgentState, AgentStatus, Task } from "@/lib/types";
+import type {
+  AgentRole,
+  AgentState,
+  AgentStatus,
+  LivenessInfo,
+  LivenessMap,
+  Task,
+} from "@/lib/types";
 import {
   DEFAULT_DISPLAY_NAMES,
   DISPLAY_NAMES_STORAGE_KEY,
 } from "@/lib/useDisplayNames";
 import { AgentAvatar } from "@/components/AgentAvatar";
-
-interface LivenessInfo {
-  lastSessionMs: number | null;
-  isWarm: boolean;
-  isRecent: boolean;
-}
-
-type LivenessMap = Record<string, LivenessInfo>;
 
 interface ModelOption {
   fullId: string;
@@ -96,6 +95,19 @@ const DEFAULT_TEAM_AGENTS: Array<{
   { id: "tester-1", role: "tester", workspace: "workspace-tester-1" },
 ];
 
+const STALE_WORKING_MS = 30 * 60 * 1000;
+
+function deriveEffectiveStatus(
+  status: AgentStatus,
+  liveness?: LivenessInfo,
+): AgentStatus {
+  if (liveness?.isRunningNow || liveness?.hasRunningCron) return "working";
+  if (status === "blocked" || status === "waiting" || status === "offline") {
+    return status;
+  }
+  return "idle";
+}
+
 function DocModal({
   agentId,
   file,
@@ -109,8 +121,6 @@ function DocModal({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    setContent(null);
     fetch(`/api/agent-docs?agentId=${agentId}&file=${file}`)
       .then((response) => response.json() as Promise<{ content?: string }>)
       .then((data) => setContent(data.content ?? "（内容为空）"))
@@ -314,9 +324,9 @@ function AgentCard({
   chatTarget,
   liveness,
   onOpenChat,
+  nowMs,
   displayName,
   allNames,
-  isTalking,
   onRename,
   currentModel,
   availableModels,
@@ -332,9 +342,9 @@ function AgentCard({
   chatTarget?: string;
   liveness?: LivenessInfo;
   onOpenChat?: () => void;
+  nowMs: number;
   displayName: string;
   allNames: Record<string, string>;
-  isTalking: boolean;
   onRename: (name: string) => void;
   currentModel: string;
   availableModels: ModelOption[];
@@ -350,18 +360,18 @@ function AgentCard({
   }, [displayName]);
 
   const meta = ROLE_META[role];
-  const statusMeta = STATUS_META[status];
+  const effectiveStatus = deriveEffectiveStatus(status, liveness);
+  const statusMeta = STATUS_META[effectiveStatus];
   const hasAgentsMd = true;
   const sessionAge =
-    liveness?.lastSessionMs != null
-      ? Date.now() - liveness.lastSessionMs
-      : null;
-  const isGhost =
+    liveness?.lastSessionMs != null ? nowMs - liveness.lastSessionMs : null;
+  const isStaleWorking =
     status === "working" &&
-    (sessionAge === null || sessionAge > 30 * 60 * 1000);
-  const effectiveDot = isGhost
+    !(liveness?.isRunningNow || liveness?.hasRunningCron) &&
+    (sessionAge === null || sessionAge > STALE_WORKING_MS);
+  const effectiveDot = isStaleWorking
     ? "bg-amber-400 animate-pulse"
-    : status === "working" && sessionAge !== null && sessionAge < 5 * 60 * 1000
+    : effectiveStatus === "working"
       ? "bg-green-400 animate-pulse"
       : statusMeta.dot;
   const sessionAgeStr = (() => {
@@ -373,7 +383,15 @@ function AgentCard({
     if (hours < 24) return `${hours}小时前`;
     return `${Math.floor(hours / 24)}天前`;
   })();
-  const targetName = chatTarget ? (allNames[chatTarget] ?? chatTarget) : null;
+  const derivedTargetName =
+    chatTarget && liveness?.conversation.isTalkingNow
+      ? (allNames[chatTarget] ?? chatTarget)
+      : null;
+  const humanTargetName = liveness?.conversation.peerLabel;
+  const talkingTargetName = derivedTargetName ?? humanTargetName;
+  const isTalkingNow = Boolean(
+    talkingTargetName && liveness?.conversation.isTalkingNow,
+  );
 
   const saveName = () => {
     const nextName = editingName.trim();
@@ -385,9 +403,9 @@ function AgentCard({
   return (
     <>
       <div
-        className={`shrink-0 w-[246px] flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3 transition-shadow duration-300 ${meta.border} ${meta.bg} ${isTalking ? "agent-talking" : ""}`}
+        className={`shrink-0 w-[246px] flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3 transition-shadow duration-300 ${meta.border} ${meta.bg} ${isTalkingNow ? "agent-talking" : ""}`}
         style={
-          isTalking
+          isTalkingNow
             ? ({ "--glow-color": meta.glowColor } as CSSProperties)
             : undefined
         }
@@ -445,15 +463,18 @@ function AgentCard({
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${effectiveDot}`}
           />
           <span>{statusMeta.text}</span>
-          {isGhost && (
+          {isStaleWorking && (
             <span className="text-amber-500 text-[10px] font-medium">
               ⚠ 无活跃会话{sessionAgeStr ? ` (${sessionAgeStr})` : ""}
             </span>
           )}
         </div>
 
-        {!isGhost && status !== "idle" && targetName && (
-          <TalkingIndicator targetName={targetName} color={meta.glowColor} />
+        {isTalkingNow && talkingTargetName && (
+          <TalkingIndicator
+            targetName={talkingTargetName}
+            color={meta.glowColor}
+          />
         )}
 
         {currentTask ? (
@@ -490,7 +511,7 @@ function AgentCard({
           📁 {workspace}/
         </div>
 
-        {!isGhost && sessionAgeStr ? (
+        {sessionAgeStr ? (
           <div className="text-[10px] text-gray-700 leading-tight">
             🔌 最后会话: {sessionAgeStr}
           </div>
@@ -547,6 +568,7 @@ function AgentCard({
 
       {docModal && (
         <DocModal
+          key={`${id}:${docModal}`}
           agentId={id}
           file={docModal}
           onClose={() => setDocModal(null)}
@@ -583,22 +605,22 @@ export default function AgentsPanel({
   const agentMap = new Map(agents.map((agent) => [agent.id, agent]));
   const taskMap = new Map(tasks.map((task) => [task.id, task]));
   const [liveness, setLiveness] = useState<LivenessMap>({});
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [displayNames, setDisplayNames] = useState<Record<string, string>>(
-    DEFAULT_DISPLAY_NAMES,
+    () => {
+      if (typeof window === "undefined") return DEFAULT_DISPLAY_NAMES;
+      try {
+        const saved = window.localStorage.getItem(DISPLAY_NAMES_STORAGE_KEY);
+        if (!saved) return DEFAULT_DISPLAY_NAMES;
+        const parsed = JSON.parse(saved) as Record<string, string>;
+        return { ...DEFAULT_DISPLAY_NAMES, ...parsed };
+      } catch {
+        return DEFAULT_DISPLAY_NAMES;
+      }
+    },
   );
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [agentModels, setAgentModels] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(DISPLAY_NAMES_STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as Record<string, string>;
-      setDisplayNames((current) => ({ ...current, ...parsed }));
-    } catch {
-      // ignore invalid local storage data
-    }
-  }, []);
 
   const renameAgent = useCallback((agentId: string, name: string) => {
     setDisplayNames((current) => {
@@ -627,6 +649,13 @@ export default function AgentsPanel({
     const timer = setInterval(() => {
       void load();
     }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -700,13 +729,6 @@ export default function AgentsPanel({
     }),
   ];
 
-  const activeConversationAgents = new Set<string>();
-  cards.forEach((card) => {
-    if (!card.chatTarget || card.status === "idle") return;
-    activeConversationAgents.add(card.id);
-    activeConversationAgents.add(card.chatTarget);
-  });
-
   return (
     <div className="shrink-0 border-b border-gray-800 bg-gray-900/30">
       <div className="px-4 pt-3 pb-1 flex items-center gap-2">
@@ -731,9 +753,9 @@ export default function AgentsPanel({
             chatTarget={card.chatTarget}
             liveness={liveness[card.id]}
             onOpenChat={card.isSystemPo ? onOpenChat : undefined}
+            nowMs={nowMs}
             displayName={displayNames[card.id] ?? card.id}
             allNames={displayNames}
-            isTalking={activeConversationAgents.has(card.id)}
             onRename={(name) => renameAgent(card.id, name)}
             currentModel={agentModels[card.id] ?? ""}
             availableModels={availableModels}

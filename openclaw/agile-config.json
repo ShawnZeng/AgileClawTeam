@@ -1,0 +1,11 @@
+{
+  "workareaPath": "./workarea",
+  "acp": {
+    "preferredTool": "claude",
+    "fallbackTool": "codex",
+    "toolPriority": [
+      "claude",
+      "codex"
+    ]
+  }
+}

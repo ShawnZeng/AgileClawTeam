@@ -7,7 +7,7 @@ import { getGatewayClient, GATEWAY_HTTP_URL } from "@/lib/gateway-ws";
 import type { SetupCheckResult, SetupApplyResult } from "@/lib/types";
 
 const INSTALL_DIR = path.join(os.homedir(), ".openclaw");
-const OPENCLAW_DIR = path.resolve(process.cwd(), "..", "openclaw");
+const OPENCLAW_DIR = path.resolve(process.cwd(), "openclaw");
 const REQUIRED_AGENTS = [
   "po",
   "sm",
@@ -250,11 +250,11 @@ function syncSprintInspectionJob(): void {
   const jobCore: Record<string, unknown> = {
     id: SPRINT_INSPECTION_JOB_ID,
     name: "Sprint Inspection",
-    description: "每 15 分钟巡检 Backlog / Sprint / Tasks，自动规划或派发任务",
+    description: "每 10 分钟巡检 Backlog / Sprint / Tasks，自动规划或派发任务",
     agentId: "sm",
     enabled: true,
     deleteAfterRun: false,
-    schedule: { kind: "cron", expr: "*/15 * * * *", tz: "Asia/Shanghai" },
+    schedule: { kind: "cron", expr: "*/10 * * * *", tz: "Asia/Shanghai" },
     sessionTarget: "isolated",
     wakeMode: "next-heartbeat",
     payload: {

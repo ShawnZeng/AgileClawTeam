@@ -14,7 +14,6 @@ const MODELS_FILE = path.join(
 );
 const PROJECT_CONFIG = path.resolve(
   process.cwd(),
-  "..",
   "openclaw",
   "openclaw.json",
 );

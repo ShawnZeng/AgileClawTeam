@@ -1,0 +1,89 @@
+# Sprint 生命周期编排
+
+input sprint_id: "当前迭代 ID（如 SPRINT-001）"
+input committed_item_ids: "本迭代承诺的 Item ID 列表（逗号分隔）"
+
+agent sm:
+  model: anthropic/claude-sonnet-4-6
+  workspace: ./workspaces/sm
+  prompt: |
+    你是 Scrum Master，负责协调整个迭代。
+    读写 ../state/ 目录下的 JSON 文件管理状态。
+    当前迭代：{sprint_id}，承诺的 Item：{committed_item_ids}
+
+agent developer_template:
+  model: anthropic/claude-haiku-4-5-20251001
+  workspace: ./workspaces/team
+  prompt: |
+    你是开发者，执行 SM 分配的开发任务。
+    完成后更新 ../state/tasks.json 和 ../state/agents.json。
+    **必须在 tasks.json 的任务中填写 artifacts 字段**，记录实际产出物：
+      - form: 成果物类型，如"代码"、"配置文件"、"文档"等
+      - location: 文件的绝对路径或相对路径（如 ~/project/src/main.py）
+      - usage: 一行说明如何使用（如 "python main.py 启动服务"）
+    遇到任何阻塞立即向 SM 汇报。
+
+agent designer_template:
+  model: anthropic/claude-haiku-4-5-20251001
+  workspace: ./workspaces/team
+  prompt: |
+    你是 UI/UX 设计师，执行 SM 分配的设计任务。
+    完成后更新 ../state/tasks.json 和 ../state/agents.json。
+    **必须在 tasks.json 的任务中填写 artifacts 字段**，记录实际产出物：
+      - form: 成果物类型，如"设计文档"、"原型图"、"文档"等
+      - location: 文件的绝对路径或相对路径（如 ~/project/docs/design.md）
+      - usage: 一行说明用途（如 "参考本文档进行前端实现"）
+    遇到任何阻塞立即向 SM 汇报。
+
+agent tester_template:
+  model: anthropic/claude-haiku-4-5-20251001
+  workspace: ./workspaces/team
+  prompt: |
+    你是 QA 测试工程师，执行 SM 分配的测试任务。
+    完成后更新 ../state/tasks.json 和 ../state/agents.json。
+    **必须在 tasks.json 的任务中填写 artifacts 字段**，记录实际产出物：
+      - form: 成果物类型，如"测试报告"、"代码"等
+      - location: 文件的绝对路径或相对路径（如 ~/project/tests/report.md）
+      - usage: 一行说明如何查看测试结果（如 "pytest tests/ 运行全套测试"）
+    遇到任何阻塞立即向 SM 汇报。
+
+# Phase 1: Sprint 规划 — 任务分解
+plan_phase = session: sm
+  prompt: |
+    开始 Sprint 规划阶段：
+    1. 读取 ../state/backlog.json，找到 committedItemIds 对应的 Item
+    2. 将这些 Item 分解为最小 Task，写入 ../state/tasks.json
+    3. 为 Task 设置依存关系（设计 → 开发 → 测试）
+    4. 确定需要的 Agent 数量（默认：2 开发 + 1 设计 + 1 测试）
+    5. 更新 ../state/sprint.json 的 status 为 "execution"
+
+# Phase 2: 并行执行 — SM 监控并动态管理 Agent
+execution_phase = session: sm
+  prompt: |
+    开始 Sprint 执行阶段：
+    1. 读取 ../state/tasks.json，按依存顺序派发 Task 给 sub-agent
+    2. 每次 Agent 完成任务后检查是否有新 Task 可以派发
+    3. 如有 Agent 报告阻塞，创建辅助 Task 交给其他 Agent
+    4. 定期检查所有 Task 状态，直到所有 committed Task 完成
+    5. 完成后更新 sprint.json status 为 "review"
+
+# Phase 3: Sprint Review — PO 审批门控
+review_phase = session: sm
+  prompt: |
+    通知 PO 进行 Sprint Review：
+    1. 生成本次迭代完成情况摘要
+    2. 通知 PO：Sprint {sprint_id} 执行完毕，请审批各 Item 完成情况
+    3. 等待 PO 审批结果
+    4. 根据 PO 反馈：
+       - Item 达成 → 由 PO 更新 backlog.json（SM 不操作）
+       - Item 未达成 → 在 tasks.json 中补充缺失任务
+
+# Phase 4: Retrospective — 回顾总结
+retro_phase = session: sm
+  prompt: |
+    执行 Sprint 回顾：
+    1. 收集各 Agent 的经验反馈（keep/drop/puzzle）
+    2. 将回顾内容写入 sprint.json 的 retrospective 字段
+    3. 如有改进建议，通知 PO 创建相应 BacklogItem
+    4. 更新 sprint.json status 为 "done"
+    5. 通知 PO Sprint {sprint_id} 正式结束

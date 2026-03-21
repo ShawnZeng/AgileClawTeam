@@ -1,0 +1,80 @@
+{
+  "gateway": {
+    "host": "127.0.0.1",
+    "port": 18789,
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "agents": {
+    "list": [
+      {
+        "id": "po",
+        "workspace": "./workspaces/po",
+        "model": "huoshan/doubao-seed-2.0-pro",
+        "description": "Product Owner - communicates with Boss, manages backlog"
+      },
+      {
+        "id": "sm",
+        "workspace": "./workspaces/sm",
+        "model": "huoshan/doubao-seed-2.0-pro",
+        "description": "Scrum Master - manages tasks, coordinates team"
+      },
+      {
+        "id": "designer-1",
+        "workspace": "./workspaces/designer-1",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "description": "UI/UX Designer - responsible for design tasks"
+      },
+      {
+        "id": "developer-1",
+        "workspace": "./workspaces/developer-1",
+        "model": "bailian/qwen3-coder-next",
+        "description": "Developer #1 - responsible for development tasks"
+      },
+      {
+        "id": "developer-2",
+        "workspace": "./workspaces/developer-2",
+        "model": "huoshan/doubao-seed-2.0-code",
+        "description": "Developer #2 - responsible for development tasks"
+      },
+      {
+        "id": "tester-1",
+        "workspace": "./workspaces/tester-1",
+        "model": "anthropic/claude-haiku-4-5-20251001",
+        "description": "QA Tester - responsible for testing and quality assurance"
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "po",
+      "match": {
+        "channel": "webchat"
+      }
+    }
+  ],
+  "shared": {
+    "statePath": "../state"
+  },
+  "tools": {
+    "agentToAgent": {
+      "enabled": true,
+      "allow": [
+        "po",
+        "sm",
+        "designer-1",
+        "developer-1",
+        "developer-2",
+        "tester-1"
+      ]
+    }
+  },
+  "cron": {
+    "enabled": true
+  }
+}

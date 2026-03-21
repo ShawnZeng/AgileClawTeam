@@ -1,0 +1,41 @@
+# Sprint Review 编排
+
+input sprint_id: "要评审的 Sprint ID"
+
+agent po:
+  model: anthropic/claude-sonnet-4-6
+  workspace: ./workspaces/po
+  prompt: "你是 Product Owner，正在进行 Sprint Review。"
+
+agent sm:
+  model: anthropic/claude-sonnet-4-6
+  workspace: ./workspaces/sm
+  prompt: "你是 Scrum Master，准备 Sprint Review 材料。"
+
+# SM 准备评审材料
+prepare = session: sm
+  prompt: |
+    准备 Sprint {sprint_id} 的评审材料：
+    1. 读取 ../state/sprint.json，获取 committedItemIds
+    2. 读取 ../state/tasks.json，统计各 Item 的任务完成情况
+    3. 读取 ../state/backlog.json，获取各 Item 的 acceptanceCriteria
+    4. 生成摘要报告：每个 Item 的完成情况 vs 验收标准
+
+# PO 评审
+review = session: po
+  prompt: |
+    进行 Sprint {sprint_id} 评审：
+    1. 查看 SM 准备的摘要
+    2. 对每个 committed Item 进行评审：
+       - 是否满足了所有 acceptanceCriteria？
+       - 结论：通过（done）或未通过（in-progress）
+    3. 更新 ../state/backlog.json 中各 Item 的 status
+    4. 给老板发送评审结果摘要
+
+# SM 处理未通过的 Item
+handle_failures = session: sm
+  prompt: |
+    处理未通过评审的 Item：
+    1. 对每个 status 仍为 in-progress 的 Item，分析欠缺什么
+    2. 在 ../state/tasks.json 中为这些 Item 补充缺失的 Task
+    3. 这些 Task 将在下次 Sprint 中执行

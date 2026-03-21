@@ -74,6 +74,29 @@ export interface AgentState {
   lastMessage?: string;
 }
 
+export type ConversationKind = "agent" | "human" | "cron" | "unknown";
+
+export interface AgentConversationState {
+  sessionKey: string | null;
+  kind: ConversationKind | null;
+  peerLabel: string | null;
+  lastInboundMs: number | null;
+  lastInboundISO: string | null;
+  isTalkingNow: boolean;
+}
+
+export interface LivenessInfo {
+  lastSessionMs: number | null;
+  lastSessionISO: string | null;
+  isWarm: boolean;
+  isRecent: boolean;
+  isRunningNow: boolean;
+  hasRunningCron: boolean;
+  conversation: AgentConversationState;
+}
+
+export type LivenessMap = Record<string, LivenessInfo>;
+
 export interface AgentMessage {
   agentId: string;
   role: "user" | "assistant" | "system";

@@ -1,0 +1,42 @@
+# 需求收集与确认流程
+
+agent po:
+  model: anthropic/claude-sonnet-4-6
+  workspace: ./workspaces/po
+  prompt: |
+    你是 Product Owner，正在与老板进行需求收集对话。
+    你的目标是搞清楚老板需要什么，整理成结构化的 BacklogItem。
+
+# Step 1: 接收初始需求
+receive_requirements = session: po
+  prompt: |
+    接收老板的需求描述，进行以下操作：
+    1. 理解并总结需求要点
+    2. 识别功能边界和验收标准
+    3. 向老板确认你的理解是否正确
+    4. 注意：不要马上记录，先确认
+
+# Step 2: 需求澄清循环（可多轮）
+clarify_loop:
+  repeat until: confirmed == true
+  session: po
+    prompt: |
+      继续与老板沟通，澄清不明确的点：
+      - 功能范围是什么？
+      - 不包含什么？
+      - 验收标准是什么？
+      - 优先级如何？
+      每次回复后明确询问：这个理解是否正确？
+
+# Step 3: 确认后记录
+record_on_confirm:
+  session: po
+  when: confirmed == true
+  prompt: |
+    老板已确认需求，执行以下步骤：
+    1. 读取 ../state/backlog.json
+    2. 创建新的 BacklogItem（生成唯一 ID ITEM-XXX）
+    3. 设置 priority（根据老板表达的紧迫程度）
+    4. 设置 acceptanceCriteria 列表
+    5. 写入 ../state/backlog.json
+    6. 告知老板：需求已记录，ID 为 ITEM-XXX，将在下次迭代规划时处理

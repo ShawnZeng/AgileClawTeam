@@ -1,0 +1,44 @@
+# Sprint 回顾编排
+
+input sprint_id: "要回顾的 Sprint ID"
+
+agent sm:
+  model: anthropic/claude-sonnet-4-6
+  workspace: ./workspaces/sm
+  prompt: "你是 Scrum Master，主持 Sprint 回顾。"
+
+agent po:
+  model: anthropic/claude-sonnet-4-6
+  workspace: ./workspaces/po
+  prompt: "你是 Product Owner，参与 Sprint 回顾。"
+
+# 收集回顾信息
+collect = session: sm
+  prompt: |
+    主持 Sprint {sprint_id} 回顾：
+    1. 询问并收集所有 Team Agent 的反馈：
+       - Keep（继续保持的好实践）
+       - Drop（需要停止的问题）
+       - Puzzle（困惑点/改进建议）
+    2. 整理所有反馈的汇总
+
+# 写入回顾结果
+write_retro = session: sm
+  prompt: |
+    将回顾结果写入 ../state/sprint.json 的 retrospective 字段：
+    {
+      "keep": [...],
+      "drop": [...],
+      "puzzle": [...],
+      "improvementTaskIds": []
+    }
+    如有改进建议需要转化为 Task，通知 PO 创建相应 BacklogItem
+
+# PO 确认并收尾
+finalize = session: po
+  prompt: |
+    Sprint 回顾结束：
+    1. 查看 SM 的回顾汇总
+    2. 若有改进 BacklogItem 需要创建，创建并写入 backlog.json
+    3. 向老板汇报本次迭代情况（可展示成果则展示，无则汇报进度）
+    4. 判断是否需要更多迭代，或是否全部完成
