@@ -1,5 +1,10 @@
 import { sseWatcher } from "@/lib/sse-watcher";
-import { readBacklog, readTasks, readAllSprints, readAgents } from "@/lib/state";
+import {
+  readBacklogWithArtifacts,
+  readTasks,
+  readAllSprints,
+  readAgents,
+} from "@/lib/state";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,16 +36,16 @@ export async function GET() {
       // Send full state snapshot on connect
       async function sendInitial() {
         const [backlog, tasks, sprints, agents] = await Promise.all([
-          readBacklog().catch(() => []),
+          readBacklogWithArtifacts().catch(() => []),
           readTasks().catch(() => []),
           readAllSprints().catch(() => []),
           readAgents().catch(() => []),
         ]);
         for (const snapshot of [
           { type: "backlog", data: backlog },
-          { type: "tasks",   data: tasks   },
-          { type: "sprint",  data: sprints },
-          { type: "agents",  data: agents  },
+          { type: "tasks", data: tasks },
+          { type: "sprint", data: sprints },
+          { type: "agents", data: agents },
         ]) {
           enqueue(`data: ${JSON.stringify(snapshot)}\n\n`);
         }
@@ -52,11 +57,20 @@ export async function GET() {
         async function sendUpdate() {
           let data: unknown;
           switch (fileType) {
-            case "backlog": data = await readBacklog().catch(() => []); break;
-            case "tasks":   data = await readTasks().catch(() => []);   break;
-            case "sprint":  data = await readAllSprints().catch(() => []); break;
-            case "agents":  data = await readAgents().catch(() => []);  break;
-            default: return;
+            case "backlog":
+              data = await readBacklogWithArtifacts().catch(() => []);
+              break;
+            case "tasks":
+              data = await readTasks().catch(() => []);
+              break;
+            case "sprint":
+              data = await readAllSprints().catch(() => []);
+              break;
+            case "agents":
+              data = await readAgents().catch(() => []);
+              break;
+            default:
+              return;
           }
           enqueue(`data: ${JSON.stringify({ type: fileType, data })}\n\n`);
         }

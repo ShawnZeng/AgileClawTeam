@@ -1,6 +1,7 @@
 "use client";
 
 import type { Task, AgentState } from "@/lib/types";
+import { useDisplayNames } from "@/lib/useDisplayNames";
 
 const STATUS_CONFIG: Record<Task["status"], { label: string; color: string }> =
   {
@@ -22,10 +23,12 @@ function TaskRow({
   task,
   allTasks,
   agents,
+  displayNames,
 }: {
   task: Task;
   allTasks: Task[];
   agents: AgentState[];
+  displayNames: Record<string, string>;
 }) {
   const cfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.pending;
   const assignee = agents.find((a) => a.id === task.assigneeId);
@@ -48,7 +51,9 @@ function TaskRow({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {assignee && (
-            <span className="text-xs text-purple-400">{assignee.id}</span>
+            <span className="text-xs text-purple-400">
+              {displayNames[assignee.id] ?? assignee.id}
+            </span>
           )}
           <span className={`text-xs px-1.5 py-0.5 rounded-full ${cfg.color}`}>
             {cfg.label}
@@ -96,6 +101,7 @@ export default function TaskBoard({
   tasks: Task[];
   agents: AgentState[];
 }) {
+  const displayNames = useDisplayNames();
   const byStatus: Record<Task["status"], Task[]> = {
     pending: [],
     "in-progress": [],
@@ -132,6 +138,7 @@ export default function TaskBoard({
                     task={task}
                     allTasks={tasks}
                     agents={agents}
+                    displayNames={displayNames}
                   />
                 ))}
                 {statusTasks.length === 0 && (

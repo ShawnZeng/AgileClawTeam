@@ -197,9 +197,9 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
       {/* Header */}
       <header className="shrink-0 px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
         <div>
-          <h1 className="text-sm font-bold text-gray-100">AgileAgentsTeam</h1>
+          <h1 className="text-sm font-bold text-gray-100">AgileClawTeam</h1>
           <p className="text-[11px] text-gray-600">
-            Scrum Multi-Agent System · OpenClaw
+            Agile Multi-Agent System · OpenClaw
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -136,6 +136,26 @@ function readProjectBindings(): Array<Record<string, unknown>> {
 }
 
 /**
+ * Upsert bindings: keep all existing runtime bindings, then append any
+ * project-defined binding whose (agentId + match) pair doesn't already exist.
+ */
+function mergeBindings(
+  existing: Array<Record<string, unknown>>,
+  fromProject: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const result = [...existing];
+  for (const pb of fromProject) {
+    const duplicate = existing.some(
+      (e) =>
+        e.agentId === pb.agentId &&
+        JSON.stringify(e.match) === JSON.stringify(pb.match),
+    );
+    if (!duplicate) result.push(pb);
+  }
+  return result;
+}
+
+/**
  * Create ~/.openclaw/workspace-{id} and copy workspace files from the project.
  * Returns the absolute destination path.
  */
@@ -196,6 +216,26 @@ function readProjectAgentSubagents(): Map<string, Record<string, unknown>> {
 }
 
 const SPRINT_INSPECTION_JOB_ID = "c7a3f891-d2b4-4e56-8f0a-1b2c3d4e5f67";
+
+/** Rotating backup — bak (newest) … bak.4 (oldest), max 5 files. */
+function backupRuntimeConfig(config: OpenclawConfig): void {
+  try {
+    const base = path.join(INSTALL_DIR, "openclaw.json.bak");
+    const MAX = 4; // highest suffix kept; bak.4 is dropped on next rotation
+    // Shift existing backups: bak.3→bak.4, bak.2→bak.3, bak.1→bak.2
+    for (let i = MAX - 1; i >= 1; i--) {
+      const from = `${base}.${i}`;
+      const to = `${base}.${i + 1}`;
+      if (fs.existsSync(from)) fs.renameSync(from, to);
+    }
+    // bak → bak.1
+    if (fs.existsSync(base)) fs.renameSync(base, `${base}.1`);
+    // write newest
+    fs.writeFileSync(base, JSON.stringify(config, null, 2), "utf-8");
+  } catch {
+    // best-effort — don't abort setup if backup fails
+  }
+}
 
 /**
  * Upsert the Sprint Inspection cron job into ~/.openclaw/cron/jobs.json.
@@ -351,7 +391,17 @@ export async function POST(): Promise<NextResponse> {
     ...currentConfig,
     gateway: {
       ...(currentConfig.gateway as object | undefined),
-      http: { endpoints: { chatCompletions: { enabled: true } } },
+      http: {
+        ...((currentConfig.gateway as Record<string, unknown> | undefined)
+          ?.http as object | undefined),
+        endpoints: {
+          ...((
+            (currentConfig.gateway as Record<string, unknown> | undefined)
+              ?.http as Record<string, unknown> | undefined
+          )?.endpoints as object | undefined),
+          chatCompletions: { enabled: true },
+        },
+      },
     },
     agents: {
       ...(currentConfig.agents as object | undefined),
@@ -365,11 +415,16 @@ export async function POST(): Promise<NextResponse> {
         : {}),
       list: [...existingList, ...toAdd],
     },
-    bindings: readProjectBindings(),
-    cron: { enabled: true },
+    bindings: mergeBindings(
+      (currentConfig.bindings as Array<Record<string, unknown>> | undefined) ??
+        [],
+      readProjectBindings(),
+    ),
+    cron: { ...(currentConfig.cron ?? {}), enabled: true },
   };
 
   try {
+    backupRuntimeConfig(currentConfig);
     await client.callRpc("config.apply", {
       raw: JSON.stringify(mergedConfig),
       baseHash: hash,
@@ -451,7 +506,17 @@ export async function PUT(): Promise<NextResponse> {
     ...currentConfig,
     gateway: {
       ...(currentConfig.gateway as object | undefined),
-      http: { endpoints: { chatCompletions: { enabled: true } } },
+      http: {
+        ...((currentConfig.gateway as Record<string, unknown> | undefined)
+          ?.http as object | undefined),
+        endpoints: {
+          ...((
+            (currentConfig.gateway as Record<string, unknown> | undefined)
+              ?.http as Record<string, unknown> | undefined
+          )?.endpoints as object | undefined),
+          chatCompletions: { enabled: true },
+        },
+      },
     },
     agents: {
       ...(currentConfig.agents as object | undefined),
@@ -465,11 +530,16 @@ export async function PUT(): Promise<NextResponse> {
         : {}),
       list: [...filteredList, ...freshAgents],
     },
-    bindings: readProjectBindings(),
-    cron: { enabled: true },
+    bindings: mergeBindings(
+      (currentConfig.bindings as Array<Record<string, unknown>> | undefined) ??
+        [],
+      readProjectBindings(),
+    ),
+    cron: { ...(currentConfig.cron ?? {}), enabled: true },
   };
 
   try {
+    backupRuntimeConfig(currentConfig);
     await client.callRpc("config.apply", {
       raw: JSON.stringify(mergedConfigPut),
       baseHash: hash,

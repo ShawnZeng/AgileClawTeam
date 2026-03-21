@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { BacklogItem, Task, Sprint, AgentState, AgentMessage } from "@/lib/types";
+import type {
+  BacklogItem,
+  Task,
+  Sprint,
+  AgentState,
+  AgentMessage,
+} from "@/lib/types";
+import { useDisplayNames } from "@/lib/useDisplayNames";
+import { ROLE_ABBR } from "@/lib/agentDisplay";
+import { ArtifactList } from "@/components/ArtifactList";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -70,14 +79,6 @@ const ITEM_PRIORITY_COLORS = [
   "bg-gray-800 text-gray-500 border-gray-700",
 ];
 
-const ROLE_EMOJI: Record<string, string> = {
-  po: "🙎",
-  sm: "🧑‍💼",
-  developer: "👨‍💻",
-  designer: "🎨",
-  tester: "🧪",
-};
-
 // ── Task row ───────────────────────────────────────────────────────────────────
 
 function TaskRow({
@@ -87,6 +88,7 @@ function TaskRow({
   isLast,
   onViewWorkLog,
   history,
+  displayNames,
 }: {
   task: Task;
   taskMap: Map<string, Task>;
@@ -94,7 +96,10 @@ function TaskRow({
   isLast: boolean;
   onViewWorkLog?: (agentId: string, taskId: string) => void;
   history?: TaskHistoryEntry[];
+  displayNames: Record<string, string>;
 }) {
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
+
   const assignee = agents.find((a) => a.id === task.assigneeId);
   const deps = task.dependencies
     .map((id) => taskMap.get(id))
@@ -105,6 +110,7 @@ function TaskRow({
   const statusBadge =
     TASK_STATUS_BADGE[task.status] ?? "bg-gray-800 text-gray-500";
   const statusLabel = TASK_STATUS_LABEL[task.status] ?? task.status;
+  const artifactCount = task.artifacts?.length ?? 0;
 
   return (
     <div className={`flex items-start gap-2 group ${isLast ? "" : "mb-1"}`}>
@@ -130,10 +136,12 @@ function TaskRow({
           </div>
           {assignee ? (
             <div className="flex items-center gap-1 shrink-0 bg-gray-800 rounded px-1.5 py-0.5">
-              <span className="text-[10px]">
-                {ROLE_EMOJI[assignee.role] ?? "🤖"}
+              <span className="text-[10px] text-gray-300">
+                {displayNames[assignee.id] ?? assignee.id}
               </span>
-              <span className="text-[10px] text-gray-400">{assignee.id}</span>
+              <span className="text-[10px] text-gray-600">
+                ({ROLE_ABBR[assignee.role] ?? assignee.role.toUpperCase()})
+              </span>
             </div>
           ) : (
             <span className="text-[10px] text-gray-700 shrink-0">未分配</span>
@@ -143,6 +151,23 @@ function TaskRow({
           >
             {effectiveStatus === "waiting" ? "等待依赖" : statusLabel}
           </span>
+          {/* Artifacts toggle badge */}
+          {task.status === "done" && artifactCount > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setArtifactsOpen((v) => !v);
+              }}
+              className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 transition-colors border ${
+                artifactsOpen
+                  ? "bg-emerald-900/60 text-emerald-300 border-emerald-800/60"
+                  : "bg-gray-800/60 text-gray-500 border-gray-700/50 hover:text-emerald-400 hover:border-emerald-800/40"
+              }`}
+              title={artifactsOpen ? "收起成果物" : "展开成果物"}
+            >
+              📦 {artifactCount}
+            </button>
+          )}
           {onViewWorkLog && (
             <button
               onClick={(e) => {
@@ -194,12 +219,17 @@ function TaskRow({
             ))}
           </div>
         )}
+
+        {/* Artifacts — collapsed by default, toggled by the badge above */}
+        {artifactsOpen && artifactCount > 0 && (
+          <div className="mt-1 ml-5">
+            <ArtifactList artifacts={task.artifacts!} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-// ── Backlog item row ───────────────────────────────────────────────────────────
 
 function BacklogItemRow({
   item,
@@ -213,6 +243,7 @@ function BacklogItemRow({
   onViewWorkLog,
   defaultExpanded,
   taskHistory,
+  displayNames,
 }: {
   item: BacklogItem;
   tasks: Task[];
@@ -225,22 +256,20 @@ function BacklogItemRow({
   onViewWorkLog?: (agentId: string, taskId: string) => void;
   defaultExpanded?: boolean;
   taskHistory: TaskHistoryMap;
+  displayNames: Record<string, string>;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? true);
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
   const itemTasks = tasks.filter((t) => t.itemId === item.id);
   const doneTasks = itemTasks.filter((t) => t.status === "done").length;
-  const priorIdx = Math.min(
-    item.priority - 1,
-    ITEM_PRIORITY_COLORS.length - 1,
-  );
+  const priorIdx = Math.min(item.priority - 1, ITEM_PRIORITY_COLORS.length - 1);
   const priorColor =
     ITEM_PRIORITY_COLORS[priorIdx] ??
     ITEM_PRIORITY_COLORS[ITEM_PRIORITY_COLORS.length - 1];
   const loading = loadingId === item.id;
 
   // Derive display status: all tasks done → treat as done regardless of item.status
-  const allTasksDone =
-    itemTasks.length > 0 && doneTasks === itemTasks.length;
+  const allTasksDone = itemTasks.length > 0 && doneTasks === itemTasks.length;
   const displayStatus = allTasksDone ? "done" : item.status;
   const statusColor =
     displayStatus === "done"
@@ -255,12 +284,24 @@ function BacklogItemRow({
         ? "进行中"
         : "待办";
 
+  // Collect all artifacts for this item
+  const allArtifacts =
+    displayStatus === "done"
+      ? (item.artifacts?.length ?? 0) > 0
+        ? (item.artifacts ?? [])
+        : itemTasks.flatMap((t) => t.artifacts ?? [])
+      : [];
+
   return (
     <div className="border border-gray-800 rounded-lg overflow-hidden">
       <div
         className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-800/40 transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
+        {/* Chevron — leftmost, clear fold/unfold indicator */}
+        <span className="text-gray-500 text-[10px] shrink-0 w-3 text-center">
+          {expanded ? "▼" : "▶"}
+        </span>
         <span
           className={`text-[10px] px-1.5 py-0.5 rounded border font-mono shrink-0 ${priorColor}`}
         >
@@ -277,9 +318,23 @@ function BacklogItemRow({
         <span className={`text-[10px] shrink-0 ${statusColor}`}>
           {statusLabel}
         </span>
-        <span className="text-gray-700 text-[10px] shrink-0">
-          {expanded ? "▲" : "▼"}
-        </span>
+        {/* Artifacts toggle badge — rightmost, independent click */}
+        {allArtifacts.length > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setArtifactsOpen((v) => !v);
+            }}
+            className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 transition-colors border ${
+              artifactsOpen
+                ? "bg-emerald-900/60 text-emerald-300 border-emerald-800/60"
+                : "bg-gray-800/60 text-gray-500 border-gray-700/50 hover:text-emerald-400 hover:border-emerald-800/40"
+            }`}
+            title={artifactsOpen ? "收起成果物汇总" : "展开成果物汇总"}
+          >
+            🏆 {allArtifacts.length}
+          </button>
+        )}
       </div>
 
       {expanded && itemTasks.length > 0 && (
@@ -293,8 +348,16 @@ function BacklogItemRow({
               isLast={i === itemTasks.length - 1}
               onViewWorkLog={onViewWorkLog}
               history={taskHistory[task.id]}
+              displayNames={displayNames}
             />
           ))}
+        </div>
+      )}
+
+      {/* Item-level artifact summary — toggled by the 🏆 badge */}
+      {artifactsOpen && allArtifacts.length > 0 && (
+        <div className="px-3 py-2 border-t border-emerald-900/30 bg-emerald-950/15">
+          <ArtifactList artifacts={allArtifacts} />
         </div>
       )}
 
@@ -344,6 +407,7 @@ function SprintSection({
   onViewWorkLog,
   patrolSessions,
   taskHistory,
+  displayNames,
 }: {
   sprint: Sprint;
   backlog: BacklogItem[];
@@ -356,6 +420,7 @@ function SprintSection({
   onViewWorkLog?: (agentId: string, taskId: string) => void;
   patrolSessions: PatrolSession[];
   taskHistory: TaskHistoryMap;
+  displayNames: Record<string, string>;
 }) {
   const isDone = sprint.status === "done";
   const [sectionExpanded, setSectionExpanded] = useState(!isDone);
@@ -382,6 +447,9 @@ function SprintSection({
         }`}
         onClick={() => setSectionExpanded((v) => !v)}
       >
+        <span className="text-gray-500 text-[10px] shrink-0 w-3 text-center">
+          {sectionExpanded ? "▼" : "▶"}
+        </span>
         <span className="text-xs font-bold text-gray-300">
           {isDone ? "✅" : "🏃"} Sprint {sprint.number}
         </span>
@@ -408,9 +476,6 @@ function SprintSection({
             {new Date(sprint.startedAt).toLocaleDateString("zh-CN")} 起
           </span>
         )}
-        <span className="text-gray-600 text-[10px] shrink-0">
-          {sectionExpanded ? "▲" : "▼"}
-        </span>
       </div>
 
       {sectionExpanded && (
@@ -434,10 +499,14 @@ function SprintSection({
                 onViewWorkLog={onViewWorkLog}
                 defaultExpanded={!isDone}
                 taskHistory={taskHistory}
+                displayNames={displayNames}
               />
             ))
           )}
-          <SprintPatrolSubsection sprint={sprint} patrolSessions={patrolSessions} />
+          <SprintPatrolSubsection
+            sprint={sprint}
+            patrolSessions={patrolSessions}
+          />
         </div>
       )}
     </div>
@@ -500,7 +569,9 @@ function PatrolSessionRow({ session }: { session: PatrolSession }) {
                 <div className="text-[9px] mb-0.5">
                   <span
                     className={
-                      msg.role === "assistant" ? "text-blue-600" : "text-gray-700"
+                      msg.role === "assistant"
+                        ? "text-blue-600"
+                        : "text-gray-700"
                     }
                   >
                     {msg.role === "assistant" ? "SM" : "系统"}
@@ -541,8 +612,7 @@ function SprintPatrolSubsection({
   const [expanded, setExpanded] = useState(false);
 
   const startMs = sprint.startedAt ? new Date(sprint.startedAt).getTime() : 0;
-  const endMs =
-    sprint.endedAt ? new Date(sprint.endedAt).getTime() : Infinity;
+  const endMs = sprint.endedAt ? new Date(sprint.endedAt).getTime() : Infinity;
 
   const relevant = patrolSessions.filter((s) => {
     if (!s.latestTimestamp) return false;
@@ -596,6 +666,7 @@ export default function BacklogTasksPanel({
   onViewWorkLog,
 }: BacklogTasksPanelProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const displayNames = useDisplayNames();
   const [patrolSessions, setPatrolSessions] = useState<PatrolSession[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryMap>({});
 
@@ -698,6 +769,7 @@ export default function BacklogTasksPanel({
                 onViewWorkLog={onViewWorkLog}
                 patrolSessions={patrolSessions}
                 taskHistory={taskHistory}
+                displayNames={displayNames}
               />
             ))}
 
@@ -726,6 +798,7 @@ export default function BacklogTasksPanel({
                       onViewWorkLog={onViewWorkLog}
                       defaultExpanded={true}
                       taskHistory={taskHistory}
+                      displayNames={displayNames}
                     />
                   ))}
                 </div>

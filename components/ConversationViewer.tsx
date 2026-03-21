@@ -3,19 +3,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { AgentMessage, AgentState, Task } from "@/lib/types";
 import type { SessionInfo } from "@/lib/openclaw-session";
+import { useDisplayNames } from "@/lib/useDisplayNames";
+import { formatAgentLabel } from "@/lib/agentDisplay";
+import { AgentAvatar } from "@/components/AgentAvatar";
 
 const ROLE_BUBBLE: Record<string, string> = {
   user: "bg-blue-900 text-blue-100 ml-auto",
   assistant: "bg-gray-700 text-gray-200",
   system: "bg-gray-800 text-gray-500 border border-gray-700",
-};
-
-const ROLE_ICON: Record<string, string> = {
-  po: "🙎",
-  sm: "🧑‍💼",
-  developer: "👨‍💻",
-  designer: "🎨",
-  tester: "🧪",
 };
 
 const TASK_STATUS_LABEL: Record<string, string> = {
@@ -52,13 +47,7 @@ interface MessagesResponse {
 
 // ── Task info panel (shown for team agents) ────────────────────────────────────
 
-function TaskInfoPanel({
-  agent,
-  task,
-}: {
-  agent?: AgentState;
-  task?: Task;
-}) {
+function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
   if (!agent && !task) return null;
 
   return (
@@ -242,14 +231,13 @@ export default function ConversationViewer({
   }, [selectedAgentId, selectedSessionKey]);
 
   const agent = agents.find((a) => a.id === selectedAgentId);
-  const roleIcon = agent ? (ROLE_ICON[agent.role] ?? "🤖") : "🤖";
+  const displayNames = useDisplayNames();
   const currentSession = sessions.find((s) => s.key === selectedSessionKey);
 
   // Current task for the selected agent
-  const currentTask =
-    agent?.currentTaskId
-      ? tasks.find((t) => t.id === agent.currentTaskId)
-      : undefined;
+  const currentTask = agent?.currentTaskId
+    ? tasks.find((t) => t.id === agent.currentTaskId)
+    : undefined;
 
   const isTeamAgent = TEAM_AGENT_IDS.has(selectedAgentId);
 
@@ -267,10 +255,9 @@ export default function ConversationViewer({
           >
             {ALL_AGENT_IDS.map((id) => {
               const a = agents.find((x) => x.id === id);
-              const icon = a ? (ROLE_ICON[a.role] ?? "🤖") : "🤖";
               return (
                 <option key={id} value={id}>
-                  {icon} {id}
+                  {formatAgentLabel(id, a?.role ?? id, displayNames)}
                 </option>
               );
             })}
@@ -288,7 +275,8 @@ export default function ConversationViewer({
             >
               {sessions.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.taskId ? "📌 " : ""}{s.label} ({s.msgCount} 条)
+                  {s.taskId ? "📌 " : ""}
+                  {s.label} ({s.msgCount} 条)
                 </option>
               ))}
             </select>
@@ -298,7 +286,13 @@ export default function ConversationViewer({
         {/* Fallback notice */}
         {fallback && (
           <div className="text-[10px] text-amber-600 bg-amber-950/40 border border-amber-800/30 rounded px-2 py-1.5 leading-relaxed">
-            ⚠️ {selectedAgentId} 暂无专属会话 — 下方显示 SM 巡检记录（含任务派发详情）
+            ⚠️{" "}
+            {formatAgentLabel(
+              selectedAgentId,
+              agent?.role ?? selectedAgentId,
+              displayNames,
+            )}{" "}
+            暂无专属会话 — 下方显示 SM 巡检记录（含任务派发详情）
           </div>
         )}
 
@@ -329,7 +323,7 @@ export default function ConversationViewer({
           {messages.length === 0 ? (
             <div className="text-xs text-gray-700 text-center py-4">
               {sessions.length === 0
-                ? `${roleIcon} ${selectedAgentId} 暂无对话记录`
+                ? `${formatAgentLabel(selectedAgentId, agent?.role ?? selectedAgentId, displayNames)} 暂无对话记录`
                 : currentSession
                   ? `${currentSession.label} 暂无消息`
                   : "请选择会话"}
@@ -343,15 +337,26 @@ export default function ConversationViewer({
                 }`}
               >
                 <div className="flex items-center gap-1 text-[10px] text-gray-600">
-                  <span>
-                    {msg.role === "user"
-                      ? fallback
-                        ? "用户/PO"
-                        : "用户"
-                      : fallback
-                        ? "🧑‍💼 sm"
-                        : `${roleIcon} ${msg.agentId}`}
-                  </span>
+                  {msg.role === "user" ? (
+                    <span>{fallback ? "用户/PO" : "你"}</span>
+                  ) : (
+                    <>
+                      <AgentAvatar
+                        agentId={selectedAgentId}
+                        role={agent?.role ?? "sm"}
+                        size={14}
+                      />
+                      <span>
+                        {fallback
+                          ? formatAgentLabel("sm", "sm", displayNames)
+                          : formatAgentLabel(
+                              selectedAgentId,
+                              agent?.role ?? "sm",
+                              displayNames,
+                            )}
+                      </span>
+                    </>
+                  )}
                   <span>
                     {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
                       hour: "2-digit",

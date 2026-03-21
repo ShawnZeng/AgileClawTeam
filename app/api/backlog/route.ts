@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { readBacklog, writeBacklog } from "@/lib/state";
+import {
+  readBacklog,
+  readBacklogWithArtifacts,
+  writeBacklog,
+} from "@/lib/state";
 import type { BacklogItem } from "@/lib/types";
 
 export async function GET() {
   try {
-    const backlog = await readBacklog();
+    const backlog = await readBacklogWithArtifacts();
     return NextResponse.json(backlog);
   } catch {
     return NextResponse.json([], { status: 200 });

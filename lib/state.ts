@@ -29,6 +29,12 @@ const statePath = (file: string) =>
 // ─── Zod schemas ──────────────────────────────────────────────────────────────
 //   nullable() on optional fields because agents write JSON null
 
+const ArtifactSchema = z.object({
+  form: z.string(),
+  location: z.string(),
+  usage: z.string(),
+});
+
 const BacklogItemSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -38,6 +44,10 @@ const BacklogItemSchema = z.object({
   acceptanceCriteria: z.array(z.string()),
   taskIds: z.array(z.string()),
   sprintId: z.preprocess((v) => v ?? undefined, z.string().optional()),
+  artifacts: z.preprocess(
+    (v) => v ?? undefined,
+    z.array(ArtifactSchema).optional(),
+  ),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -56,6 +66,10 @@ const TaskSchema = z.object({
   blockerDescription: z.preprocess(
     (v) => v ?? undefined,
     z.string().optional(),
+  ),
+  artifacts: z.preprocess(
+    (v) => v ?? undefined,
+    z.array(ArtifactSchema).optional(),
   ),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -135,6 +149,33 @@ export async function readBacklog(): Promise<BacklogItem[]> {
   const data = await readRaw("backlog.json");
   const arr = unwrapArray(data, "items");
   return z.array(BacklogItemSchema).parse(arr);
+}
+
+/** Enrich backlog items with aggregated artifacts from their tasks */
+export async function readBacklogWithArtifacts(): Promise<BacklogItem[]> {
+  const [backlog, tasks] = await Promise.all([readBacklog(), readTasks()]);
+  const tasksByItemId = new Map<string, Task[]>();
+
+  // Group tasks by itemId
+  for (const task of tasks) {
+    if (!tasksByItemId.has(task.itemId)) {
+      tasksByItemId.set(task.itemId, []);
+    }
+    tasksByItemId.get(task.itemId)!.push(task);
+  }
+
+  // Enrich backlog items with artifacts from completed tasks
+  return backlog.map((item) => {
+    const itemTasks = tasksByItemId.get(item.id) ?? [];
+    const allArtifacts = itemTasks
+      .filter((t) => t.status === "done")
+      .flatMap((t) => t.artifacts ?? []);
+
+    return {
+      ...item,
+      artifacts: allArtifacts.length > 0 ? allArtifacts : item.artifacts,
+    };
+  });
 }
 
 export async function readTasks(): Promise<Task[]> {

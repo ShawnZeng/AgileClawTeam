@@ -1,6 +1,9 @@
 "use client";
 
 import type { BacklogItem, Task, Sprint, AgentState } from "@/lib/types";
+import { useDisplayNames } from "@/lib/useDisplayNames";
+import { formatAgentLabel } from "@/lib/agentDisplay";
+import { AgentAvatar } from "@/components/AgentAvatar";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -10,14 +13,6 @@ const PRIORITY_COLOR = [
   "bg-yellow-900 text-yellow-300",
   "bg-gray-800 text-gray-400",
 ];
-
-const ROLE_ICON: Record<string, string> = {
-  po: "🙎",
-  sm: "🧑‍💼",
-  developer: "💻",
-  designer: "🎨",
-  tester: "🔍",
-};
 
 const TASK_TYPE_ICON: Record<Task["type"], string> = {
   development: "💻",
@@ -166,7 +161,15 @@ const KANBAN_COLS: {
   },
 ];
 
-function TaskCard({ task, backlog }: { task: Task; backlog: BacklogItem[] }) {
+function TaskCard({
+  task,
+  backlog,
+  displayNames,
+}: {
+  task: Task;
+  backlog: BacklogItem[];
+  displayNames: Record<string, string>;
+}) {
   const isBlocked = task.status === "blocked";
   const linkedItem = backlog.find((b) => b.id === task.itemId);
   return (
@@ -195,7 +198,7 @@ function TaskCard({ task, backlog }: { task: Task; backlog: BacklogItem[] }) {
       <div className="flex items-center gap-1.5 mt-0.5">
         {task.assigneeId && (
           <span className="text-xs text-purple-400 truncate">
-            {task.assigneeId}
+            {displayNames[task.assigneeId] ?? task.assigneeId}
           </span>
         )}
         {linkedItem && (
@@ -214,9 +217,11 @@ function TaskCard({ task, backlog }: { task: Task; backlog: BacklogItem[] }) {
 function KanbanCenter({
   tasks,
   backlog,
+  displayNames,
 }: {
   tasks: Task[];
   backlog: BacklogItem[];
+  displayNames: Record<string, string>;
 }) {
   return (
     <div className="flex h-full min-w-0">
@@ -241,7 +246,12 @@ function KanbanCenter({
                 </div>
               ) : (
                 colTasks.map((task) => (
-                  <TaskCard key={task.id} task={task} backlog={backlog} />
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    backlog={backlog}
+                    displayNames={displayNames}
+                  />
                 ))
               )}
             </div>
@@ -254,16 +264,20 @@ function KanbanCenter({
 
 // ── Right: Agent + Sprint column ───────────────────────────────────────────────
 
-function AgentCard({ agent }: { agent: AgentState }) {
+function AgentCard({
+  agent,
+  displayNames,
+}: {
+  agent: AgentState;
+  displayNames: Record<string, string>;
+}) {
   return (
     <div className="bg-gray-800 border border-gray-700/60 rounded px-2.5 py-2 flex items-start gap-2">
-      <span className="text-base shrink-0 mt-0.5">
-        {ROLE_ICON[agent.role] ?? "🤖"}
-      </span>
+      <AgentAvatar agentId={agent.id} role={agent.role} size={20} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium text-gray-200 truncate flex-1">
-            {agent.id}
+            {formatAgentLabel(agent.id, agent.role, displayNames)}
           </span>
           <div
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${AGENT_STATUS_DOT[agent.status]}`}
@@ -327,9 +341,11 @@ function SprintMini({ sprint }: { sprint: Sprint | null }) {
 function AgentColumn({
   agents,
   sprint,
+  displayNames,
 }: {
   agents: AgentState[];
   sprint: Sprint | null;
+  displayNames: Record<string, string>;
 }) {
   return (
     <div className="flex flex-col h-full border-l border-gray-800">
@@ -340,7 +356,13 @@ function AgentColumn({
             暂无 Agent
           </div>
         ) : (
-          agents.map((agent) => <AgentCard key={agent.id} agent={agent} />)
+          agents.map((agent) => (
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              displayNames={displayNames}
+            />
+          ))
         )}
       </div>
       <div className="shrink-0 p-2 border-t border-gray-800 space-y-1.5">
@@ -370,6 +392,7 @@ export default function BoardView({
   sprint,
   agents,
 }: BoardViewProps) {
+  const displayNames = useDisplayNames();
   return (
     <div className="flex h-full min-h-0">
       {/* Left: Backlog */}
@@ -379,12 +402,20 @@ export default function BoardView({
 
       {/* Center: Task kanban */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        <KanbanCenter tasks={tasks} backlog={backlog} />
+        <KanbanCenter
+          tasks={tasks}
+          backlog={backlog}
+          displayNames={displayNames}
+        />
       </div>
 
       {/* Right: Agents + Sprint */}
       <div className="w-[220px] shrink-0 flex flex-col h-full overflow-hidden">
-        <AgentColumn agents={agents} sprint={sprint} />
+        <AgentColumn
+          agents={agents}
+          sprint={sprint}
+          displayNames={displayNames}
+        />
       </div>
     </div>
   );

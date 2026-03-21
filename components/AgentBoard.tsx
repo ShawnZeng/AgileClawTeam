@@ -1,6 +1,9 @@
 "use client";
 
 import type { AgentState, AgentStatus } from "@/lib/types";
+import { useDisplayNames } from "@/lib/useDisplayNames";
+import { formatAgentLabel } from "@/lib/agentDisplay";
+import { AgentAvatar } from "@/components/AgentAvatar";
 
 const STATUS_CONFIG: Record<
   AgentStatus,
@@ -33,26 +36,23 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const ROLE_ICON: Record<string, string> = {
-  po: "🙎",
-  sm: "🧑‍💼",
-  developer: "💻",
-  designer: "🎨",
-  tester: "🔍",
-};
-
-function AgentCard({ agent }: { agent: AgentState }) {
+function AgentCard({
+  agent,
+  displayNames,
+}: {
+  agent: AgentState;
+  displayNames: Record<string, string>;
+}) {
   const cfg = STATUS_CONFIG[agent.status] ?? STATUS_CONFIG.offline;
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">{ROLE_ICON[agent.role] ?? "🤖"}</span>
+          <AgentAvatar agentId={agent.id} role={agent.role} size={28} />
           <div>
             <div className="text-sm font-semibold text-gray-200">
-              {agent.id}
+              {formatAgentLabel(agent.id, agent.role, displayNames)}
             </div>
-            <div className="text-xs text-gray-500 capitalize">{agent.role}</div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -98,6 +98,7 @@ const DEFAULT_AGENTS: AgentState[] = [
 ];
 
 export default function AgentBoard({ agents }: { agents: AgentState[] }) {
+  const displayNames = useDisplayNames();
   const displayed = agents.length > 0 ? agents : DEFAULT_AGENTS;
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
@@ -106,7 +107,7 @@ export default function AgentBoard({ agents }: { agents: AgentState[] }) {
       </h2>
       <div className="grid grid-cols-1 gap-2">
         {displayed.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} />
+          <AgentCard key={agent.id} agent={agent} displayNames={displayNames} />
         ))}
       </div>
     </div>

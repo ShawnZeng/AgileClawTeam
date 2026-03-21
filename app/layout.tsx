@@ -9,8 +9,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgileAgentsTeam Dashboard",
-  description: "Scrum Multi-Agent System powered by OpenClaw",
+  title: "AgileClawTeam Dashboard",
+  description: "Agile Multi-Agent System powered by OpenClaw",
 };
 
 export default function RootLayout({

@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { AgentMessage } from "@/lib/types";
+import { useDisplayNames } from "@/lib/useDisplayNames";
+import { formatAgentLabel } from "@/lib/agentDisplay";
+import { AgentAvatar } from "@/components/AgentAvatar";
 
 interface MessagesResponse {
   agentId: string;
@@ -34,6 +37,7 @@ export default function POChatPanel({
   const [pendingMsgs, setPendingMsgs] = useState<PendingMsg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const displayNames = useDisplayNames();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -171,7 +175,7 @@ export default function POChatPanel({
       {/* Header */}
       {!hideHeader && (
         <div className="px-4 py-3 border-b border-gray-700 flex items-center gap-2 shrink-0">
-          <span className="text-lg">🙎</span>
+          <AgentAvatar agentId="po" role="po" size={24} />
           <div>
             <h2 className="text-sm font-semibold text-gray-200">与 PO 对话</h2>
             <p className="text-xs text-gray-500">
@@ -188,7 +192,7 @@ export default function POChatPanel({
       >
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-2">
-            <span className="text-3xl">🙎</span>
+            <AgentAvatar agentId="po" role="po" size={48} />
             <p className="text-sm text-gray-500">还没有对话记录</p>
             <p className="text-xs text-gray-600">发送消息给 PO 开始需求讨论</p>
           </div>
@@ -203,7 +207,14 @@ export default function POChatPanel({
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                  {msg.role === "user" ? <span>你</span> : <span>🙎 PO</span>}
+                  {msg.role === "user" ? (
+                    <span>你</span>
+                  ) : (
+                    <>
+                      <AgentAvatar agentId="po" role="po" size={14} />
+                      <span>{formatAgentLabel("po", "po", displayNames)}</span>
+                    </>
+                  )}
                   <span>
                     {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
                       hour12: false,

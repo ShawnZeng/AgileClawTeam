@@ -24,3 +24,39 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Agent talking glow animation ─────────────────────────────────── */
+.agent-talking {
+  animation: agentTalking 1.8s ease-in-out infinite;
+}
+
+@keyframes agentTalking {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1.5px
+        color-mix(in srgb, var(--glow-color, #8b5cf6) 70%, transparent),
+      0 0 8px 0 color-mix(in srgb, var(--glow-color, #8b5cf6) 22%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2.5px
+        color-mix(in srgb, var(--glow-color, #8b5cf6) 80%, transparent),
+      0 0 22px 4px
+        color-mix(in srgb, var(--glow-color, #8b5cf6) 28%, transparent);
+  }
+}
+
+/* ── Chat dots bounce animation ───────────────────────────────────── */
+@keyframes chatDot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.55;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}

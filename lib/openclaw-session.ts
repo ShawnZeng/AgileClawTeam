@@ -151,7 +151,13 @@ async function parseJsonlMessages(
   jsonlPath: string,
   agentId: string,
 ): Promise<AgentMessage[]> {
-  const raw = await fs.readFile(jsonlPath, "utf-8");
+  let raw: string;
+  try {
+    raw = await fs.readFile(jsonlPath, "utf-8");
+  } catch {
+    // File may have been deleted between access() check and readFile (race condition)
+    return [];
+  }
   const messages: AgentMessage[] = [];
 
   for (const line of raw.split("\n")) {
@@ -244,7 +250,12 @@ export async function listSessions(agentId: string): Promise<SessionInfo[]> {
           if (entry.sessionFile) jsonlPath = entry.sessionFile;
           else continue;
         }
-        const raw = await fs.readFile(jsonlPath, "utf-8");
+        let raw: string;
+        try {
+          raw = await fs.readFile(jsonlPath, "utf-8");
+        } catch {
+          continue;
+        }
         const lines = raw.split("\n").filter((l) => l.trim());
 
         let msgCount = 0;

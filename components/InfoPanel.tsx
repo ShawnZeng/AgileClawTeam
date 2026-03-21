@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import type { BacklogItem, Task, Sprint, AgentState } from "@/lib/types";
+import { useDisplayNames } from "@/lib/useDisplayNames";
+import { formatAgentLabel } from "@/lib/agentDisplay";
+import { AgentAvatar } from "@/components/AgentAvatar";
+import { ArtifactList } from "@/components/ArtifactList";
 
 // ── Sprint block ──────────────────────────────────────────────────────────────
 
@@ -78,6 +82,8 @@ const STATUS_COLOR: Record<BacklogItem["status"], string> = {
 interface BacklogCardProps {
   item: BacklogItem;
   tasks: Task[];
+  agents: AgentState[];
+  displayNames: Record<string, string>;
   sprintCommittedIds: string[];
   onMoveToSprint: () => void;
   onPriorityChange: (delta: -1 | 1) => void;
@@ -87,6 +93,8 @@ interface BacklogCardProps {
 function BacklogCard({
   item,
   tasks,
+  agents,
+  displayNames,
   sprintCommittedIds,
   onMoveToSprint,
   onPriorityChange,
@@ -205,12 +213,31 @@ function BacklogCard({
                   />
                   <span className="truncate">{t.title}</span>
                   <span className="shrink-0 text-gray-700">
-                    {t.assigneeId ?? "—"}
+                    {t.assigneeId
+                      ? formatAgentLabel(
+                          t.assigneeId,
+                          agents.find((a) => a.id === t.assigneeId)?.role ??
+                            t.assigneeId,
+                          displayNames,
+                        )
+                      : "—"}
                   </span>
                 </div>
               ))}
             </div>
           )}
+          {item.status === "done" && (() => {
+            const allArtifacts = linkedTasks.flatMap((t) => t.artifacts ?? []);
+            if (allArtifacts.length === 0) return null;
+            return (
+              <div className="pt-2 border-t border-emerald-900/30">
+                <div className="text-xs text-emerald-700 mb-1.5 font-medium">
+                  🏆 成果物（{allArtifacts.length} 项）
+                </div>
+                <ArtifactList artifacts={allArtifacts} />
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -219,13 +246,6 @@ function BacklogCard({
 
 // ── Agent status block ────────────────────────────────────────────────────────
 
-const ROLE_ICON: Record<string, string> = {
-  po: "🙎",
-  sm: "🧑‍💼",
-  developer: "💻",
-  designer: "🎨",
-  tester: "🔍",
-};
 const STATUS_DOT: Record<AgentState["status"], string> = {
   idle: "bg-gray-500",
   working: "bg-blue-400 animate-pulse",
@@ -234,7 +254,13 @@ const STATUS_DOT: Record<AgentState["status"], string> = {
   offline: "bg-gray-700",
 };
 
-function AgentBlock({ agents }: { agents: AgentState[] }) {
+function AgentBlock({
+  agents,
+  displayNames,
+}: {
+  agents: AgentState[];
+  displayNames: Record<string, string>;
+}) {
   if (agents.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2">
@@ -244,8 +270,10 @@ function AgentBlock({ agents }: { agents: AgentState[] }) {
           className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5"
           title={a.currentTaskId ? `任务: ${a.currentTaskId}` : a.status}
         >
-          <span className="text-sm">{ROLE_ICON[a.role] ?? "🤖"}</span>
-          <span className="text-xs text-gray-400">{a.id}</span>
+          <AgentAvatar agentId={a.id} role={a.role} size={18} />
+          <span className="text-xs text-gray-300">
+            {formatAgentLabel(a.id, a.role, displayNames)}
+          </span>
           <span
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[a.status]}`}
           />
@@ -273,6 +301,7 @@ export default function InfoPanel({
   onDataChange,
 }: InfoPanelProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const displayNames = useDisplayNames();
 
   const handleMoveToSprint = async (itemId: string) => {
     setLoadingId(itemId);
@@ -329,6 +358,8 @@ export default function InfoPanel({
                 key={item.id}
                 item={item}
                 tasks={tasks}
+                agents={agents}
+                displayNames={displayNames}
                 sprintCommittedIds={sprintCommittedIds}
                 onMoveToSprint={() => void handleMoveToSprint(item.id)}
                 onPriorityChange={(delta) =>
@@ -355,7 +386,7 @@ export default function InfoPanel({
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-0.5">
             Agent 状态
           </div>
-          <AgentBlock agents={agents} />
+          <AgentBlock agents={agents} displayNames={displayNames} />
         </div>
       )}
     </div>

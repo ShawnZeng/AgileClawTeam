@@ -1,4 +1,4 @@
-// Shared TypeScript types for AgileAgentsTeam
+// Shared TypeScript types for AgileClawTeam
 
 export interface BacklogItem {
   id: string; // "ITEM-001"
@@ -9,8 +9,16 @@ export interface BacklogItem {
   acceptanceCriteria: string[];
   taskIds: string[];
   sprintId?: string;
+  artifacts?: Artifact[]; // aggregated from completed tasks
   createdAt: string;
   updatedAt: string;
+}
+
+/** A deliverable produced when a task is completed. */
+export interface Artifact {
+  form: string; // e.g. "代码", "设计文档", "测试报告"
+  location: string; // absolute or relative path, e.g. "~/project/src/main.py"
+  usage: string; // one-line usage hint, e.g. "python main.py 启动服务"
 }
 
 export interface Task {
@@ -24,6 +32,7 @@ export interface Task {
   dependencies: string[];
   sprintId: string;
   blockerDescription?: string;
+  artifacts?: Artifact[]; // populated by the agent on task completion
   createdAt: string;
   updatedAt: string;
 }
