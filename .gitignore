@@ -25,6 +25,7 @@ next-env.d.ts
 # ─── Runtime work directories (generated during agent execution) ──────────────
 /state/
 /workarea/
+/openclaw/workspaces/state
 /openclaw/workspaces/state/
 
 # ─── Leftover dashboard/ directory (empty after restructure) ─────────────────
