@@ -235,6 +235,17 @@ Contributions and discussion are welcome. The current project is already a worki
 
 - X: [@ShawnZeng8](https://x.com/ShawnZeng8)
 - GitHub: [ShawnZeng](https://github.com/ShawnZeng)
+- Join the WeChat group if you can speak Chinese:
+
+  <p align="left">
+    <img src="./public/readme/wechat-group.png" alt="AgileClawTeam 微信交流群二维码" width="300" />
+  </p>
+
+- WeChat Channel：
+  <p align="left">
+    <img src="./public/readme/wechatvideo.jpg" alt="视频号" width="300" />
+  </p>
+- Bilibili： [霓季肖恩](https://space.bilibili.com/1178642346)
 
 ---
 
