@@ -241,11 +241,95 @@ function backupRuntimeConfig(config: OpenclawConfig): void {
  * Upsert the Sprint Inspection cron job into ~/.openclaw/cron/jobs.json.
  * backlog.json lives in PO's workspace; sprint/tasks/agents live in SM's workspace.
  */
+/** Returns true when there is real work for the SM to process. */
+function hasActiveWork(): boolean {
+  try {
+    const backlogFile = path.join(
+      INSTALL_DIR,
+      "workspace-po",
+      "state",
+      "backlog.json",
+    );
+    const sprintFile = path.join(
+      INSTALL_DIR,
+      "workspace-sm",
+      "state",
+      "sprint.json",
+    );
+
+    interface BacklogEntry {
+      status: string;
+      sprintId?: string | null;
+    }
+    interface SprintEntry {
+      status: string;
+    }
+    interface SprintStore {
+      sprints?: SprintEntry[];
+    }
+
+    // Check for unplanned backlog items
+    if (fs.existsSync(backlogFile)) {
+      const backlog = JSON.parse(
+        fs.readFileSync(backlogFile, "utf-8"),
+      ) as BacklogEntry[];
+      const hasPending = backlog.some(
+        (item) => !item.sprintId && item.status !== "done",
+      );
+      if (hasPending) return true;
+    }
+
+    // Check for active sprints
+    if (fs.existsSync(sprintFile)) {
+      const raw = JSON.parse(fs.readFileSync(sprintFile, "utf-8")) as
+        | SprintStore
+        | SprintEntry[];
+      const sprints: SprintEntry[] = Array.isArray(raw)
+        ? raw
+        : (raw.sprints ?? []);
+      const hasActive = sprints.some(
+        (s) => s.status === "planning" || s.status === "execution",
+      );
+      if (hasActive) return true;
+    }
+
+    return false;
+  } catch {
+    // If we can't read state, err on the side of keeping the cron alive
+    return true;
+  }
+}
+
 function syncSprintInspectionJob(): void {
   const poState = path.join(INSTALL_DIR, "workspace-po", "state");
   const smState = path.join(INSTALL_DIR, "workspace-sm", "state");
   const cronDir = path.join(INSTALL_DIR, "cron");
   const jobsFile = path.join(cronDir, "jobs.json");
+
+  // If there is no pending work, remove the cron (if present) and skip.
+  if (!hasActiveWork()) {
+    try {
+      if (fs.existsSync(jobsFile)) {
+        interface JobsStore {
+          version: number;
+          jobs: Record<string, unknown>[];
+        }
+        const store = JSON.parse(
+          fs.readFileSync(jobsFile, "utf-8"),
+        ) as JobsStore;
+        const before = store.jobs.length;
+        store.jobs = store.jobs.filter(
+          (j) => j.id !== SPRINT_INSPECTION_JOB_ID,
+        );
+        if (store.jobs.length !== before) {
+          fs.writeFileSync(jobsFile, JSON.stringify(store, null, 2), "utf-8");
+        }
+      }
+    } catch {
+      // best-effort
+    }
+    return;
+  }
 
   const jobCore: Record<string, unknown> = {
     id: SPRINT_INSPECTION_JOB_ID,

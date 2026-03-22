@@ -12,11 +12,7 @@ const MODELS_FILE = path.join(
   "agent",
   "models.json",
 );
-const PROJECT_CONFIG = path.resolve(
-  process.cwd(),
-  "openclaw",
-  "openclaw.json",
-);
+const PROJECT_CONFIG = path.resolve(process.cwd(), "openclaw", "openclaw.json");
 // Runtime config — contains actual effective models for all agents
 const RUNTIME_CONFIG = path.join(OPENCLAW_DIR, "openclaw.json");
 

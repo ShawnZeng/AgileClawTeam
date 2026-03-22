@@ -145,16 +145,6 @@ export default function ConversationViewer({
   const [fallback, setFallback] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  // Track whether user is scrolled to (near) the bottom
-  const isAtBottomRef = useRef(true);
-
-  const handleScroll = useCallback(() => {
-    const el = scrollAreaRef.current;
-    if (!el) return;
-    // Consider "at bottom" if within 60px of the bottom edge
-    isAtBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-  }, []);
 
   // When initialAgentId/initialSessionKey props change (e.g. from task button), sync
   useEffect(() => {
@@ -218,16 +208,20 @@ export default function ConversationViewer({
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Auto-scroll to bottom only when already at bottom
+  // Auto-scroll: read scroll position directly from DOM each time (no stale ref).
+  // Only scroll if already near the bottom (same pattern as POChatPanel).
   useEffect(() => {
-    if (isAtBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom <= 80) {
+      bottomRef.current?.scrollIntoView({ block: "end" });
     }
   }, [messages]);
 
-  // When switching agent or session, reset to bottom so new content is visible
+  // When switching agent or session, always jump to bottom immediately
   useEffect(() => {
-    isAtBottomRef.current = true;
+    bottomRef.current?.scrollIntoView({ block: "end" });
   }, [selectedAgentId, selectedSessionKey]);
 
   const agent = agents.find((a) => a.id === selectedAgentId);
@@ -310,7 +304,6 @@ export default function ConversationViewer({
       {/* Messages area */}
       <div
         ref={scrollAreaRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-y-auto min-h-0 pr-1"
       >
         {/* Task info panel — always shown for team agents */}

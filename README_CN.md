@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./public/readme/header.jpeg" alt="AgileClawTeam pixel-art hero image" width="900" />
+<img src="./public/readme/header.jpeg" alt="AgileClawTeam 像素风主视觉" width="900" />
 
 <p align="center">
     <svg viewBox="0 0 620 116" width="900" fill="none" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" aria-label="PO, SM, Designer, Developer, Tester avatars">
@@ -200,56 +200,56 @@
     <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
-🌐 Language: **English** | [简体中文](./README_CN.md)
+🌐 语言：**简体中文** | [English](./README.md)
 
-  </div>
+</div>
 
 # AgileClawTeam
 
-A fully autonomous, self-coordinating multi-agent Scrum team built on OpenClaw for small project development, feature delivery, and research-oriented work.
+一个基于 OpenClaw 的全自动、自主协作多 Agent 敏捷团队，面向小型项目开发、功能迭代与调查研究任务。
 
-It does not just let an AI Scrum team run on its own. It also makes the entire collaboration process visible, so you can inspect backlog items, sprints, tasks, agent status, and message flow in real time.
-
----
-
-## ✨ What It Is
-
-AgileClawTeam maps a small Scrum team into a set of continuously running AI agents: the PO interprets goals and manages backlog items, the SM drives sprint cadence and task orchestration, and the Designer, Developer, and Tester deliver design, code, and validation in parallel.
-
-You only need to give the team a goal. The lobster crew will autonomously handle the following flow:
-
-1. Research the requirement and organize backlog items.
-2. Plan a sprint and distribute tasks automatically.
-3. Execute design, development, and testing in parallel.
-4. Collect artifacts, update state, and push review and retrospective forward.
-
-## 🎯 Good Fit For
-
-- Fast 0-to-1 delivery for small projects
-- Autonomous execution of a single feature or a single sprint
-- Prototypes, technical validation, and internal tools
-- Requirement research, solution comparison, and investigation tasks
-
-## 🔥 Highlights
-
-- Fully automated: from requirement breakdown to sprint execution, review, and retrospective
-- Autonomous collaboration: PO, SM, design, development, and testing coordinate by role without constant manual supervision
-- Visual dashboard: the dashboard exposes agent status, backlog, sprint, tasks, messages, and connection health in real time
-- Cost control: different roles can use different models, so heavy reasoning and lighter execution can be mixed efficiently
-- Visible outcomes: you can directly inspect what the team is doing, where it is blocked, and what it has produced
-- Easy to extend: role prompts, workflows, and review logic all live in the repository and can be customized directly
+它不仅能让一支 AI Scrum 团队自主推进工作，还把整个协作过程可视化出来，让你随时看到 Backlog、Sprint、Task、Agent 状态和对话流转。
 
 ---
 
-## ⚡ Quick Start
+## ✨ 这是什么
 
-### 📋 Requirements
+AgileClawTeam 把一个小型 Scrum 团队映射成一组可持续运行的 AI Agent：PO 负责理解目标和整理 Backlog，SM 负责 Sprint 节奏与任务派发，Designer、Developer、Tester 并行交付设计、代码和验证结果。
 
-- OpenClaw >= 2026.3.12 # lower versions may work but are not tested
+你只需要下达需求目标，龙虾团队们就会自主完成以下流程：
+
+1. 调研需求并整理待办。
+2. 自动规划 Sprint 与分发任务。
+3. 多角色并行执行设计、开发、测试。
+4. 汇总产物、回写状态、推动评审与回顾。
+
+## 🎯 适合什么场景
+
+- 小型项目从 0 到 1 的快速开发
+- 单个功能或单个 Sprint 的自主推进
+- 产品原型、技术验证、内部工具搭建
+- 需求调研、方案比较、调查研究类任务
+
+## 🔥 核心特点
+
+- 全自动：从需求拆解到 Sprint 执行、Review、Retrospective 都可自动推进
+- 自主协作：PO、SM、设计、开发、测试角色会按职责自行协同，不需要你逐步盯流程
+- 可视化看板：这是项目的一大特点，Dashboard 会实时展示 Agent 状态、Backlog、Sprint、Task、消息与连接状态
+- 成本可控：不同角色支持配置不同模型，重推理和轻执行可以混搭
+- 结果可见：团队在做什么、卡在什么环节、产出了什么结果，都能直接在界面里看到
+- 容易扩展：角色设定、工作流、评审逻辑都在仓库内，可直接修改
+
+---
+
+## ⚡ 快速开始
+
+### 📋 前置要求
+
+- OpenClaw >= 2026.3.12 # 低版本也可能会工作但未经测试
 - Node.js >= 20
 - npm >= 10
 
-### 📦 Install
+### 📦 安装
 
 ```bash
 git clone https://github.com/ShawnZeng/AgileClawTeam.git
@@ -257,33 +257,33 @@ cd AgileClawTeam
 npm install
 ```
 
-### ▶️ Run
+### ▶️ 启动
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser. On the first launch, the app automatically opens the setup wizard.
+浏览器打开 `http://localhost:3000`，首次进入会自动进入 Setup 向导。
 
-### 🔧 Environment Variables
+### 🔧 环境变量
 
-In the default setup, you do not need to configure Gateway environment variables.
+默认情况下不需要配置 Gateway 环境变量。
 
-The project connects to OpenClaw using the default address 127.0.0.1:18789, which matches the standard local configuration.
+项目内默认连接 OpenClaw 的默认地址 `127.0.0.1:18789`，这和系统里的默认配置保持一致。
 
-You only need to create .env.local when one of the following is true:
+只有在以下情况时，才需要创建 `.env.local` 并手动配置：
 
-- You changed the OpenClaw Gateway host
-- You changed the OpenClaw Gateway port
-- You want to explicitly pass OPENCLAW_GATEWAY_TOKEN
+- 你修改过 OpenClaw Gateway 的主机地址
+- 你修改过 OpenClaw Gateway 的端口
+- 你希望显式传入 `OPENCLAW_GATEWAY_TOKEN`
 
-Only if you need custom values, run:
+需要自定义时再执行：
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Then fill in your actual address, for example:
+然后按你的实际地址填写，例如：
 
 ```ini
 OPENCLAW_GATEWAY_HOST=192.168.1.20
@@ -293,80 +293,80 @@ OPENCLAW_GATEWAY_PORT=19000
 
 ---
 
-## 🖥️ Dashboard Overview
+## 🖥️ 可视化看板
 
-You can inspect the following directly in the dashboard:
+你可以直接在 Dashboard 中观察：
 
-- Whether each agent is online and what it is currently doing
-- Real-time changes to backlog, sprint, and tasks
-- Message flow and collaboration status across roles
-- OpenClaw Gateway connection status and runtime state
-- Current artifacts, history, and task progress rhythm
+- Agent 是否在线、当前在执行什么
+- Backlog、Sprint、Task 的实时变化
+- 多角色之间的消息流转与协作状态
+- OpenClaw Gateway 的连接状态与运行情况
+- 当前产物、历史记录与任务推进节奏
 
-On the first login, the app redirects to the setup check page. You can only continue after the required checks pass. The coding tool setup is optional and not a mandatory prerequisite.
+首次登录会先跳转到配置检查页，只有在关键检查项通过后才能继续进入系统；其中编程工具配置是可选项，不是必填前置条件。
 
 <p align="left">
-  <img src="./public/readme/introduction2.png" alt="AgileClawTeam setup check screen" width="750" />
+  <img src="./public/readme/introduction2.png" alt="AgileClawTeam 系统配置检查界面" width="750" />
 </p>
 
-The main dashboard includes the agent team status, task panels, artifact inspection, conversation history, and other core workspace interactions.
+主界面功能，包括Agent团队状态、任务面板、成果物检查，对话记录等。
 
 <p align="left">
-  <img src="./public/readme/introduction1.png" alt="AgileClawTeam dashboard overview" width="750" />
+  <img src="./public/readme/introduction1.png" alt="AgileClawTeam 主界面功能介绍" width="750" />
 </p>
 
 ---
 
-## 🧩 Agent Roles
+## 🧩 Agent 角色分工
 
-- **PO**: talks to the boss, clarifies requirements, breaks down backlog items, and accepts outcomes.
-  The PO is designed as a strong-confirmation, light-execution entry gate. In [SOUL.md](./openclaw/workspaces/po/SOUL.md) and [AGENTS.md](./openclaw/workspaces/po/AGENTS.md), the PO must first convert the boss request into a title, description, acceptance criteria, and priority, then wait for explicit confirmation before emitting a structured BacklogItem and waking up the SM. [BOOTSTRAP.md](./openclaw/workspaces/po/BOOTSTRAP.md) and [IDENTITY.md](./openclaw/workspaces/po/IDENTITY.md) define startup behavior and role positioning.
+- **PO**：和老板（你）对话，负责需求澄清、Backlog 拆解、结果验收。
+  PO 被做成“强确认、弱执行”的需求入口闸门：在 [SOUL.md](./openclaw/workspaces/po/SOUL.md) 和 [AGENTS.md](./openclaw/workspaces/po/AGENTS.md) 里，PO 必须先把老板需求整理成标题、描述、验收标准和优先级，等待明确确认后，才输出结构化 `BacklogItem` 并唤醒 SM；[BOOTSTRAP.md](./openclaw/workspaces/po/BOOTSTRAP.md) 和 [IDENTITY.md](./openclaw/workspaces/po/IDENTITY.md) 则补充了启动方式与角色定位。
 
-- **SM**: plans sprints, orchestrates tasks, drives cadence, and performs state patrol.
-  The SM is the team scheduling core. In [SOUL.md](./openclaw/workspaces/sm/SOUL.md), it manages breakdown, dependency coordination, task dispatch, blocker handling, and periodic patrol around tasks.json, sprint.json, and agents.json. [AGENTS.md](./openclaw/workspaces/sm/AGENTS.md) and [BOOTSTRAP.md](./openclaw/workspaces/sm/BOOTSTRAP.md) cover multi-agent collaboration rules and startup recovery. The SM does not talk to the boss directly. It runs the team through process control.
+- **SM**：负责 Sprint 规划、任务编排、节奏推进、状态巡检。
+  SM 是团队调度内核：在 [SOUL.md](./openclaw/workspaces/sm/SOUL.md) 里，它围绕 `tasks.json`、`sprint.json`、`agents.json` 做任务拆解、依赖编排、任务分发、阻塞处理和定期巡检；[AGENTS.md](./openclaw/workspaces/sm/AGENTS.md) 和 [BOOTSTRAP.md](./openclaw/workspaces/sm/BOOTSTRAP.md) 则承接多 Agent 协作协议与启动恢复逻辑。SM 不直接对老板说话，而是通过流程控制整个团队运行。
 
-- **Designer**: produces UI proposals, interaction notes, and visual guidance.
-  The Designer is a task-driven documentation-oriented executor. In [SOUL.md](./openclaw/workspaces/designer-1/SOUL.md), it receives tasks from the SM, writes design deliverables into workarea/docs/, and publishes formal outputs through artifacts. [BOOTSTRAP.md](./openclaw/workspaces/designer-1/BOOTSTRAP.md) decides whether to resume existing work or stay idle after startup. [IDENTITY.md](./openclaw/workspaces/designer-1/IDENTITY.md), [HEARTBEAT.md](./openclaw/workspaces/designer-1/HEARTBEAT.md), and [USER.md](./openclaw/workspaces/designer-1/USER.md) provide identity, cadence, and user context.
+- **Designer**：产出页面方案、交互说明、视觉建议。
+  Designer 是任务驱动的文档型执行者：在 [SOUL.md](./openclaw/workspaces/designer-1/SOUL.md) 中，它接收 SM 的任务后把设计产物沉淀到 `workarea/docs/`，并通过 `artifacts` 回写正式交付物；[BOOTSTRAP.md](./openclaw/workspaces/designer-1/BOOTSTRAP.md) 负责启动后检查现有任务还是进入待机；[IDENTITY.md](./openclaw/workspaces/designer-1/IDENTITY.md)、[HEARTBEAT.md](./openclaw/workspaces/designer-1/HEARTBEAT.md)、[USER.md](./openclaw/workspaces/designer-1/USER.md) 则补充身份、节奏和用户上下文。
 
-- **Developer**: implements features, fixes issues, and produces delivery-ready code.
-  The Developer is a controlled coding executor. In [SOUL.md](./openclaw/workspaces/developer-1/SOUL.md), it is required to work only on assigned tasks, preferably invoking Claude Code or Codex through ACP, generating code inside workarea/src/, and writing status back to the shared state. [BOOTSTRAP.md](./openclaw/workspaces/developer-1/BOOTSTRAP.md) decides whether to resume work or wait after startup. [IDENTITY.md](./openclaw/workspaces/developer-1/IDENTITY.md), [HEARTBEAT.md](./openclaw/workspaces/developer-1/HEARTBEAT.md), and [USER.md](./openclaw/workspaces/developer-1/USER.md) reinforce stable role identity, task rhythm, and working context.
+- **Developer**：实现功能、修复问题、生成交付代码。
+  Developer 是受控的代码执行器：在 [SOUL.md](./openclaw/workspaces/developer-1/SOUL.md) 中，它被要求围绕已分配任务工作，优先通过 ACP 调起 Claude Code 或 Codex，在 `workarea/src/` 中产出代码并回写状态；[BOOTSTRAP.md](./openclaw/workspaces/developer-1/BOOTSTRAP.md) 用来决定启动后是继续任务还是等待；[IDENTITY.md](./openclaw/workspaces/developer-1/IDENTITY.md)、[HEARTBEAT.md](./openclaw/workspaces/developer-1/HEARTBEAT.md)、[USER.md](./openclaw/workspaces/developer-1/USER.md) 则让它保持稳定角色感、任务节奏和上下文记忆。
 
-- **Tester**: validates behavior, produces test conclusions, and reports risk.
-  The Tester is the downstream quality gate. In [SOUL.md](./openclaw/workspaces/tester-1/SOUL.md), it must wait until dependent tasks are complete, write test reports and defect notes into workarea/tests/, and report issues back to the SM instead of modifying code directly. [BOOTSTRAP.md](./openclaw/workspaces/tester-1/BOOTSTRAP.md) decides whether to continue testing or remain idle after startup. [IDENTITY.md](./openclaw/workspaces/tester-1/IDENTITY.md), [HEARTBEAT.md](./openclaw/workspaces/tester-1/HEARTBEAT.md), and [USER.md](./openclaw/workspaces/tester-1/USER.md) add role identity, working cadence, and user background.
+- **Tester**：验证行为、补充测试结论、反馈风险。
+  Tester 是后置质量门：在 [SOUL.md](./openclaw/workspaces/tester-1/SOUL.md) 中，它必须等依赖任务完成后再开始测试，把测试报告和缺陷记录写入 `workarea/tests/`，发现问题后汇报给 SM，而不是直接改代码；[BOOTSTRAP.md](./openclaw/workspaces/tester-1/BOOTSTRAP.md) 负责启动时判断是继续测试还是待机；[IDENTITY.md](./openclaw/workspaces/tester-1/IDENTITY.md)、[HEARTBEAT.md](./openclaw/workspaces/tester-1/HEARTBEAT.md)、[USER.md](./openclaw/workspaces/tester-1/USER.md) 则补充角色身份、工作节奏与用户背景。
 
-## 🔄 How It Works
+## 🔄 工作方式
 
 ```mermaid
 flowchart TD
-  boss[Boss]
+  boss[你 Boss]
   po[PO]
-  backlog[Backlog]
+  backlog[待办事项池 Backlog]
   sm[SM]
-  patrol[SM Patrol]
-  sprint[Create Sprint]
-  breakdown[SM Break Down Committed Items]
+  patrol[SM 巡检]
+  sprint[创建 Sprint]
+  breakdown[SM 拆解已承诺待办事项]
   tasks[Tasks]
   design[Designer]
   dev[Developer]
   test[Tester]
   review[PO Review]
 
-  boss -->|New goals, questions, research directions| po
-  po -->|Clarify and break down items| backlog
-  backlog -->|Select work to execute| sm
-  sm -->|Create sprint and commit backlog items| sprint
-  sprint -->|Read committed items| breakdown
-  breakdown -->|Generate executable tasks| tasks
-  sm -.periodic patrol.-> patrol
-  patrol -.check backlog, sprint, tasks, agents.-> sm
-  tasks -->|Design task| design
-  tasks -->|Development task| dev
-  tasks -->|Testing task| test
-  design -->|Write back design artifacts and status| review
-  dev -->|Write back code artifacts and status| review
-  test -->|Write back test conclusions and status| review
-  review -->|Accepted results and next-step suggestions| boss
-  review -.unfinished items stay in backlog.-> backlog
+  boss -->|随时提出新目标 问题 研究方向| po
+  po -->|澄清需求 拆解条目| backlog
+  backlog -->|选择待执行待办事项| sm
+  sm -->|创建 Sprint 并承诺待办事项| sprint
+  sprint -->|读取已承诺待办事项| breakdown
+  breakdown -->|生成可执行任务| tasks
+  sm -.定期巡检.-> patrol
+  patrol -.检查 backlog sprint tasks agents.-> sm
+  tasks -->|设计任务| design
+  tasks -->|开发任务| dev
+  tasks -->|测试任务| test
+  design -->|回写设计产物与状态| review
+  dev -->|回写代码产物与状态| review
+  test -->|回写测试结论与状态| review
+  review -->|验收结果与下一步建议| boss
+  review -.未完成待办事项继续留在待办池.-> backlog
 
   classDef actor fill:#dbeafe,stroke:#2563eb,color:#0f172a,stroke-width:2px;
   classDef workflow fill:#fef3c7,stroke:#d97706,color:#111827,stroke-width:2px;
@@ -377,51 +377,52 @@ flowchart TD
   class backlog,sprint,breakdown,tasks,review workflow;
 ```
 
-The dashboard reads shared state through SSE and WebSocket while connecting to the OpenClaw Gateway, so you can let the team run autonomously and still monitor global progress in real time.
+Dashboard 通过 SSE / WebSocket 读取共享状态文件并连接 OpenClaw Gateway，因此你可以一边让团队自主运行，一边实时观察全局进展。
 
 ---
 
-## 🗂️ Project Structure
+## 🗂️ 项目结构
 
 ```text
-app/           Next.js pages and API routes
-components/    Dashboard components and board UI
-lib/           State, types, gateway connections, and utilities
-openclaw/      Agent configs, workflows, and workspace templates
-public/        Static assets
-scripts/       Helper scripts
-state/         Shared state data
-workarea/      Agent working directory for generated outputs
+app/           Next.js 页面与 API
+components/    Dashboard 组件与看板
+lib/           状态、类型、网关连接等工具
+openclaw/      Agent 配置、工作流、工作区模板
+public/        静态素材
+scripts/       辅助脚本
+state/         共享状态数据
+workarea/      Agent 实际产物工作区（可在项目中修改成其他地址）
 ```
 
-## ⚙️ Configuration
+## ⚙️ 配置说明
 
-If needed, modify the following files to adapt the system to your own workflow. After changing them, you need to re-activate the agents in OpenClaw for the new configuration to take effect: Dashboard -> System Settings -> Re-activate Agent.
+如有必要请自行修改下面的文件以达到特定的需求。配置后需要重新激活Agent到Openclaw中才能生效, Dashboard界面 -> 系统设置 -> 重新激活Agent
 
-- Agent workspace templates live in openclaw/workspaces/
-- Workflow definitions live in openclaw/prose/
-- Approval and review automation lives in openclaw/lobster/
-- Project-level preferences live in openclaw/agile-config.json
-
----
-
-## 🛣️ Roadmap
-
-Contributions and discussion are welcome. The current project is already a working MVP, but there is still a lot of room to expand:
-
-- Use standard format of documents (For example, from PMP or other project management standards) to ensure project standard and communication between agents.
-- Test failure feedback loop: when the Tester finds a problem, feed the result back to the SM automatically and generate or assign follow-up fix tasks
-- Stronger quality gates: make test pass, test fail, and re-test-after-rework visible in the dashboard and workflow instead of leaving them only as textual convention
-- Multi-team collaboration: support multiple Scrum teams working in the same project, or even across projects, while surfacing separate progress in the dashboard
-- Dashboard improvements: add more visualizations such as burn-down charts, task distribution charts, and message flow views
-- Dashboard telemetry: token consumption, invocation counts, and similar runtime metrics
+- Agent 工作区模板在 `openclaw/workspaces/`
+- 工作流定义在 `openclaw/prose/`
+- 审批与评审自动化在 `openclaw/lobster/`
+- 项目级偏好在 `openclaw/agile-config.json`
 
 ---
 
-## 📮 Contact
+## 🛣️ 后续计划
 
-- X: [@ShawnZeng8](https://x.com/ShawnZeng8)
-- GitHub: [ShawnZeng](https://github.com/ShawnZeng)
+欢迎参与讨论和贡献！目前我们已经有了一个可运行的 MVP，但还有很多可以改进和扩展的空间：
+
+- 使用标准化的文档格式（例如来自 PMP 或其他项目管理标准）以确保项目标准化和代理之间的沟通。
+- 测试失败回流：当 Tester 发现问题时，后续计划补上从测试结果自动回流到 SM，再重新生成或派发修复任务的闭环流程。
+- 更完整的质量门：把“测试通过 / 测试失败 / 返工后复测”明确展示到 Dashboard 和工作流中，而不是只在文字约定中存在。
+- 多团队协作：支持多个 Scrum 团队在同一项目中协作，甚至跨项目协作，Dashboard 也能展示不同团队的状态和进展。
+- Dashboard 优化：增加更多可视化组件，例如燃尽图、任务分布图、消息流图等，让团队状态一目了然。
+- Dashboard 信息增强：token消耗，调用次数等。
+
+---
+
+## 📮 联系方式
+
+- GitHub： [ShawnZeng](https://github.com/ShawnZeng)
+- X / Twitter：待补充
+- Email：待补充
 
 ---
 

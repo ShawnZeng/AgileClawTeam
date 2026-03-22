@@ -3,9 +3,6 @@
   "acp": {
     "preferredTool": "claude",
     "fallbackTool": "codex",
-    "toolPriority": [
-      "claude",
-      "codex"
-    ]
+    "toolPriority": ["claude", "codex"]
   }
 }

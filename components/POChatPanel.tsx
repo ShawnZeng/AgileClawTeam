@@ -41,6 +41,12 @@ export default function POChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasPositionedInitialScrollRef = useRef(false);
+  const shouldStickToBottomRef = useRef(true);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    bottomRef.current?.scrollIntoView({ behavior });
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -69,16 +75,35 @@ export default function POChatPanel({
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Auto-scroll: read the CURRENT scroll position from the DOM directly —
-  // avoids the race where the scroll event hasn't fired yet but the effect has.
+  // On first non-empty render, jump straight to the newest messages.
   useEffect(() => {
+    if (hasPositionedInitialScrollRef.current) return;
+    if (messages.length === 0 && pendingMsgs.length === 0) return;
+
+    hasPositionedInitialScrollRef.current = true;
+    requestAnimationFrame(() => scrollToBottom("auto"));
+  }, [messages.length, pendingMsgs.length, scrollToBottom]);
+
+  // After initial positioning, keep following new messages only while the user
+  // is already near the bottom.
+  useEffect(() => {
+    if (
+      !hasPositionedInitialScrollRef.current ||
+      !shouldStickToBottomRef.current
+    ) {
+      return;
+    }
+
+    requestAnimationFrame(() => scrollToBottom("smooth"));
+  }, [messages, pendingMsgs, scrollToBottom]);
+
+  const handleScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
+
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (distanceFromBottom <= 80) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, pendingMsgs]);
+    shouldStickToBottomRef.current = distanceFromBottom <= 80;
+  };
 
   // ── Core send logic (also used by retry) ─────────────────────────────────────
   const doSend = useCallback(async (content: string, pendingId: string) => {
@@ -128,10 +153,8 @@ export default function POChatPanel({
       { id: pendingId, content: trimmed, timestamp: now, status: "sending" },
     ]);
     // Unconditionally scroll to bottom when user sends a message
-    setTimeout(
-      () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
-      0,
-    );
+    shouldStickToBottomRef.current = true;
+    setTimeout(() => scrollToBottom("smooth"), 0);
 
     await doSend(trimmed, pendingId);
   };
@@ -188,6 +211,7 @@ export default function POChatPanel({
       {/* Message list */}
       <div
         ref={scrollContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
       >
         {isEmpty ? (
@@ -202,7 +226,7 @@ export default function POChatPanel({
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`flex flex-col gap-1 max-w-[80%] ${
+                className={`flex flex-col gap-1 max-w-[90%] ${
                   msg.role === "user" ? "ml-auto items-end" : "items-start"
                 }`}
               >
@@ -235,7 +259,7 @@ export default function POChatPanel({
             {pendingToShow.map((p) => (
               <div
                 key={p.id}
-                className="flex flex-col gap-1 max-w-[80%] ml-auto items-end"
+                className="flex flex-col gap-1 max-w-[90%] ml-auto items-end"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                   <span>你</span>

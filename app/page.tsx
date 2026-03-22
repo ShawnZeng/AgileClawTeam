@@ -82,26 +82,29 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
   const [convTaskId, setConvTaskId] = useState<string | null>(null);
 
   // Resizable panel
-  const [panelWidth, setPanelWidth] = useState(520);
+  const [panelWidthVw, setPanelWidthVw] = useState(30);
   const isResizingRef = useRef(false);
   const startXRef = useRef(0);
-  const startWidthRef = useRef(520);
+  const startWidthVwRef = useRef(30);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
       isResizingRef.current = true;
       startXRef.current = e.clientX;
-      startWidthRef.current = panelWidth;
+      startWidthVwRef.current = panelWidthVw;
       e.preventDefault();
     },
-    [panelWidth],
+    [panelWidthVw],
   );
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!isResizingRef.current) return;
       const delta = startXRef.current - e.clientX;
-      setPanelWidth(Math.max(280, Math.min(860, startWidthRef.current + delta)));
+      const deltaVw = (delta / window.innerWidth) * 100;
+      setPanelWidthVw(
+        Math.max(28, Math.min(72, startWidthVwRef.current + deltaVw)),
+      );
     };
     const onMouseUp = () => {
       isResizingRef.current = false;
@@ -220,11 +223,7 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
       </header>
 
       {/* Agents row — full width */}
-      <AgentsPanel
-        agents={agents}
-        tasks={tasks}
-        onOpenChat={openChat}
-      />
+      <AgentsPanel agents={agents} tasks={tasks} onOpenChat={openChat} />
 
       {/* Main area: content + optional side panel */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -255,69 +254,71 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
             {/* Side panel */}
             <div
               className="shrink-0 flex flex-col overflow-hidden bg-gray-950"
-              style={{ width: panelWidth }}
+              style={{ width: `${panelWidthVw}vw` }}
             >
-            <div className="shrink-0 px-4 py-3 border-b border-gray-800 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base">
-                  {panelMode === "chat" ? "🙎" : "💬"}
-                </span>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-gray-200 truncate">
-                    {panelTitle}
+              <div className="shrink-0 px-4 py-3 border-b border-gray-800 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">
+                    {panelMode === "chat" ? "🙎" : "💬"}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-200 truncate">
+                      {panelTitle}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {panelSub}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 truncate">{panelSub}</div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Mode toggle tabs */}
+                  <button
+                    onClick={() => setPanelMode("chat")}
+                    className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+                      panelMode === "chat"
+                        ? "bg-violet-700 text-violet-100"
+                        : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                    }`}
+                  >
+                    派活
+                  </button>
+                  <button
+                    onClick={() => setPanelMode("conv")}
+                    className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
+                      panelMode === "conv"
+                        ? "bg-blue-700 text-blue-100"
+                        : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                    }`}
+                  >
+                    记录
+                  </button>
+                  <button
+                    onClick={() => setPanelMode(null)}
+                    className="ml-1 text-gray-600 hover:text-gray-300 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 transition-colors text-sm"
+                    title="关闭面板"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {/* Mode toggle tabs */}
-                <button
-                  onClick={() => setPanelMode("chat")}
-                  className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-                    panelMode === "chat"
-                      ? "bg-violet-700 text-violet-100"
-                      : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
-                  }`}
-                >
-                  派活
-                </button>
-                <button
-                  onClick={() => setPanelMode("conv")}
-                  className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-                    panelMode === "conv"
-                      ? "bg-blue-700 text-blue-100"
-                      : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
-                  }`}
-                >
-                  记录
-                </button>
-                <button
-                  onClick={() => setPanelMode(null)}
-                  className="ml-1 text-gray-600 hover:text-gray-300 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 transition-colors text-sm"
-                  title="关闭面板"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
 
-            {/* Panel content */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              {panelMode === "chat" ? (
-                <POChatPanel hideHeader />
-              ) : (
-                <div className="h-full p-3 overflow-hidden flex flex-col">
-                  <ConversationViewer
-                    agents={agents}
-                    tasks={tasks}
-                    initialAgentId={convAgentId}
-                    initialSessionKey={convSessionKey ?? undefined}
-                    initialTaskId={convTaskId ?? undefined}
-                  />
-                </div>
-              )}
+              {/* Panel content */}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {panelMode === "chat" ? (
+                  <POChatPanel hideHeader />
+                ) : (
+                  <div className="h-full p-3 overflow-hidden flex flex-col">
+                    <ConversationViewer
+                      agents={agents}
+                      tasks={tasks}
+                      initialAgentId={convAgentId}
+                      initialSessionKey={convSessionKey ?? undefined}
+                      initialTaskId={convTaskId ?? undefined}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
           </>
         )}
       </div>
