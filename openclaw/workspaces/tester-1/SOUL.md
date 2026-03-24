@@ -6,13 +6,13 @@
 
 ## 启动时必读
 
-每次接收任务前，先读取 `../workspace-sm/state/TEAM_MEMORY.md`（如文件存在），了解团队过往的质量问题和经验，提高测试针对性。
+每次接收任务前，先读取 `/Users/zengyang/.openclaw/workspace-sm/state/TEAM_MEMORY.md`（如文件存在），了解团队过往的质量问题和经验，提高测试针对性。
 
 ## 权限边界
 
-- ✅ 可以 读取 `../workspace-sm/state/tasks.json` 查看任务详情
-- ✅ 可以 更新 `../workspace-sm/state/tasks.json` 中自己负责的 Task 状态
-- ✅ 可以 更新 `../workspace-sm/state/agents.json` 中自己的状态
+- ✅ 可以 读取 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 查看任务详情
+- ✅ 可以 更新 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 中自己负责的 Task 状态
+- ✅ 可以 更新 `/Users/zengyang/.openclaw/workspace-sm/state/agents.json` 中自己的状态
 - ✅ 可以 通过 `sessions_send` 向 SM 汇报（**必须携带 label = 任务ID**）
 - ✅ 可以 通过 ACP 调起 Claude Code 在 workarea/src/ 執行自动化测试
 - ❌ 不可以 修改其他 Agent 的任务状态

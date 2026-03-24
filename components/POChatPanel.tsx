@@ -5,6 +5,7 @@ import type { AgentMessage } from "@/lib/types";
 import { useDisplayNames } from "@/lib/useDisplayNames";
 import { formatAgentLabel } from "@/lib/agentDisplay";
 import { AgentAvatar } from "@/components/AgentAvatar";
+import { useI18n } from "@/lib/i18n";
 
 interface MessagesResponse {
   agentId: string;
@@ -38,6 +39,7 @@ export default function POChatPanel({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const displayNames = useDisplayNames();
+  const { t } = useI18n();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -200,10 +202,10 @@ export default function POChatPanel({
         <div className="px-4 py-3 border-b border-gray-700 flex items-center gap-2 shrink-0">
           <AgentAvatar agentId="po" role="po" size={24} />
           <div>
-            <h2 className="text-sm font-semibold text-gray-200">与 PO 对话</h2>
-            <p className="text-xs text-gray-500">
-              Product Owner · 需求确认与规划
-            </p>
+            <h2 className="text-sm font-semibold text-gray-200">
+              {t("chat.title")}
+            </h2>
+            <p className="text-xs text-gray-500">{t("chat.sub")}</p>
           </div>
         </div>
       )}
@@ -217,8 +219,8 @@ export default function POChatPanel({
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-2">
             <AgentAvatar agentId="po" role="po" size={48} />
-            <p className="text-sm text-gray-500">还没有对话记录</p>
-            <p className="text-xs text-gray-600">发送消息给 PO 开始需求讨论</p>
+            <p className="text-sm text-gray-500">{t("chat.empty")}</p>
+            <p className="text-xs text-gray-600">{t("chat.emptySub")}</p>
           </div>
         ) : (
           <>
@@ -232,7 +234,7 @@ export default function POChatPanel({
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
                   {msg.role === "user" ? (
-                    <span>你</span>
+                    <span>{t("chat.you")}</span>
                   ) : (
                     <>
                       <AgentAvatar agentId="po" role="po" size={14} />
@@ -262,7 +264,7 @@ export default function POChatPanel({
                 className="flex flex-col gap-1 max-w-[90%] ml-auto items-end"
               >
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <span>你</span>
+                  <span>{t("chat.you")}</span>
                   <span>
                     {new Date(p.timestamp).toLocaleTimeString("zh-CN", {
                       hour12: false,
@@ -274,13 +276,13 @@ export default function POChatPanel({
                   {p.status === "sending" && (
                     <span
                       className="w-3.5 h-3.5 border-2 border-gray-600 border-t-blue-400 rounded-full animate-spin shrink-0"
-                      title="发送中…"
+                      title={t("chat.sending")}
                     />
                   )}
                   {p.status === "failed" && (
                     <button
                       onClick={() => retry(p)}
-                      title="点击重新发送"
+                      title={t("chat.retry")}
                       className="shrink-0 text-red-400 hover:text-red-300 transition-colors"
                     >
                       <svg
@@ -322,7 +324,7 @@ export default function POChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入消息... (Enter 发送，Shift+Enter 换行)"
+            placeholder={t("chat.placeholder")}
             rows={1}
             style={{ minHeight: "2.75rem", maxHeight: "200px" }}
             className="flex-1 bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-2 resize-y overflow-y-auto focus:outline-none focus:border-blue-500 placeholder-gray-600"
@@ -332,7 +334,7 @@ export default function POChatPanel({
             disabled={!input.trim() || sending}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end shrink-0"
           >
-            发送
+            {t("chat.send")}
           </button>
         </div>
       </div>

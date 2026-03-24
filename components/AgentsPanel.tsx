@@ -15,6 +15,7 @@ import {
   DISPLAY_NAMES_STORAGE_KEY,
 } from "@/lib/useDisplayNames";
 import { AgentAvatar } from "@/components/AgentAvatar";
+import { useI18n } from "@/lib/i18n";
 
 interface ModelOption {
   fullId: string;
@@ -26,7 +27,7 @@ interface ModelOption {
 const ROLE_META: Record<
   AgentRole,
   {
-    label: string;
+    labelKey: string;
     border: string;
     bg: string;
     badge: string;
@@ -34,35 +35,35 @@ const ROLE_META: Record<
   }
 > = {
   po: {
-    label: "产品负责人",
+    labelKey: "role.po",
     border: "border-violet-700/60",
     bg: "bg-violet-950/40",
     badge: "bg-violet-800/60 text-violet-300",
     glowColor: "#8b5cf6",
   },
   sm: {
-    label: "Scrum Master",
+    labelKey: "role.sm",
     border: "border-sky-700/60",
     bg: "bg-sky-950/40",
     badge: "bg-sky-800/60 text-sky-300",
     glowColor: "#38bdf8",
   },
   developer: {
-    label: "开发工程师",
+    labelKey: "role.developer",
     border: "border-emerald-700/60",
     bg: "bg-emerald-950/40",
     badge: "bg-emerald-800/60 text-emerald-300",
     glowColor: "#10b981",
   },
   designer: {
-    label: "设计师",
+    labelKey: "role.designer",
     border: "border-amber-700/60",
     bg: "bg-amber-950/40",
     badge: "bg-amber-800/60 text-amber-300",
     glowColor: "#f59e0b",
   },
   tester: {
-    label: "测试工程师",
+    labelKey: "role.tester",
     border: "border-rose-700/60",
     bg: "bg-rose-950/40",
     badge: "bg-rose-800/60 text-rose-300",
@@ -70,12 +71,12 @@ const ROLE_META: Record<
   },
 };
 
-const STATUS_META: Record<AgentStatus, { dot: string; text: string }> = {
-  idle: { dot: "bg-green-500", text: "空闲" },
-  working: { dot: "bg-sky-400 animate-pulse", text: "工作中" },
-  blocked: { dot: "bg-red-400 animate-pulse", text: "阻塞" },
-  waiting: { dot: "bg-amber-400 animate-pulse", text: "等待中" },
-  offline: { dot: "bg-gray-600", text: "离线" },
+const STATUS_META: Record<AgentStatus, { dot: string; textKey: string }> = {
+  idle: { dot: "bg-green-500", textKey: "status.idle" },
+  working: { dot: "bg-sky-400 animate-pulse", textKey: "status.working" },
+  blocked: { dot: "bg-red-400 animate-pulse", textKey: "status.blocked" },
+  waiting: { dot: "bg-amber-400 animate-pulse", textKey: "status.waiting" },
+  offline: { dot: "bg-gray-600", textKey: "status.offline" },
 };
 
 const SYSTEM_AGENTS: Array<{ id: string; role: AgentRole; workspace: string }> =
@@ -119,14 +120,15 @@ function DocModal({
 }) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
 
   useEffect(() => {
     fetch(`/api/agent-docs?agentId=${agentId}&file=${file}`)
       .then((response) => response.json() as Promise<{ content?: string }>)
-      .then((data) => setContent(data.content ?? "（内容为空）"))
-      .catch(() => setContent("（加载失败）"))
+      .then((data) => setContent(data.content ?? t("agents.docEmpty")))
+      .catch(() => setContent(t("agents.docError")))
       .finally(() => setLoading(false));
-  }, [agentId, file]);
+  }, [agentId, file, t]);
 
   return (
     <div
@@ -150,7 +152,9 @@ function DocModal({
         </div>
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {loading ? (
-            <div className="text-gray-500 text-sm">加载中...</div>
+            <div className="text-gray-500 text-sm">
+              {t("agents.docLoading")}
+            </div>
           ) : (
             <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
               {content}
@@ -177,6 +181,7 @@ function ModelPickerModal({
   onSelect: (model: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const isCodeRole = role === "developer";
 
   // For developer role: code models first, then alphabetical within groups
@@ -204,7 +209,7 @@ function ModelPickerModal({
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
           <div>
             <span className="text-sm font-semibold text-gray-200">
-              选择模型
+              {t("agents.selectModel")}
             </span>
             <span className="text-xs text-gray-600 ml-2 font-mono">
               {agentId}
@@ -221,7 +226,7 @@ function ModelPickerModal({
         <div className="flex-1 overflow-y-auto p-3 min-h-0 space-y-3">
           {byProvider.length === 0 ? (
             <div className="text-xs text-gray-600 text-center py-8">
-              未找到可用模型，请确保 OpenClaw 已配置
+              {t("agents.noModels")}
             </div>
           ) : (
             byProvider.map(([provider, providerModels]) => (
@@ -247,7 +252,7 @@ function ModelPickerModal({
                         </span>
                         {isCurrent && (
                           <span className="text-blue-400 text-[10px] shrink-0">
-                            ✓ 当前
+                            {t("agents.currentModel")}
                           </span>
                         )}
                         {m.isCode && isCodeRole && !isCurrent && (
@@ -266,7 +271,7 @@ function ModelPickerModal({
 
         {isCodeRole && (
           <div className="shrink-0 px-4 py-2 border-t border-gray-800 text-[10px] text-emerald-500">
-            💡 CODE 标记的模型针对编程任务优化，推荐用于开发人员
+            {t("agents.codeModelTip")}
           </div>
         )}
       </div>
@@ -281,6 +286,7 @@ function TalkingIndicator({
   targetName: string;
   color: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-1.5 py-0.5">
       <div className="flex items-center gap-0.5">
@@ -307,7 +313,7 @@ function TalkingIndicator({
         />
       </div>
       <span className="text-[10px] font-medium truncate" style={{ color }}>
-        正在和 {targetName} 对话
+        {t("agents.talkingWith", { name: targetName })}
       </span>
     </div>
   );
@@ -354,6 +360,7 @@ function AgentCard({
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingName, setEditingName] = useState(displayName);
+  const { t, lang } = useI18n();
 
   useEffect(() => {
     setEditingName(displayName);
@@ -377,11 +384,11 @@ function AgentCard({
   const sessionAgeStr = (() => {
     if (sessionAge === null) return null;
     const minutes = Math.floor(sessionAge / 60000);
-    if (minutes < 1) return "刚刚";
-    if (minutes < 60) return `${minutes}分钟前`;
+    if (minutes < 1) return t("agents.timeJustNow");
+    if (minutes < 60) return t("agents.timeMinutes", { n: String(minutes) });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}小时前`;
-    return `${Math.floor(hours / 24)}天前`;
+    if (hours < 24) return t("agents.timeHours", { n: String(hours) });
+    return t("agents.timeDays", { n: String(Math.floor(hours / 24)) });
   })();
   const derivedTargetName =
     chatTarget && liveness?.conversation.isTalkingNow
@@ -433,7 +440,7 @@ function AgentCard({
             ) : (
               <button
                 onClick={() => setIsEditingName(true)}
-                title="点击编辑名字"
+                title={t("agents.editName")}
                 className="group flex items-center gap-1 text-sm font-bold text-gray-100 hover:text-white transition-colors max-w-full"
               >
                 <span className="truncate">{displayName}</span>
@@ -449,10 +456,10 @@ function AgentCard({
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded ${meta.badge}`}
               >
-                {meta.label}
+                {t(meta.labelKey)}
               </span>
               <span className="text-[10px] text-gray-500">
-                角色不变，名字可编辑
+                {t("agents.nameHint")}
               </span>
             </div>
           </div>
@@ -462,10 +469,12 @@ function AgentCard({
           <span
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${effectiveDot}`}
           />
-          <span>{statusMeta.text}</span>
+          <span>{t(statusMeta.textKey)}</span>
           {isStaleWorking && (
             <span className="text-amber-500 text-[10px] font-medium">
-              ⚠ 无活跃会话{sessionAgeStr ? ` (${sessionAgeStr})` : ""}
+              {t("agents.staleSession", {
+                age: sessionAgeStr ? ` (${sessionAgeStr})` : "",
+              })}
             </span>
           )}
         </div>
@@ -480,7 +489,9 @@ function AgentCard({
         {currentTask ? (
           <div className="text-[10px] leading-tight space-y-0.5">
             <div className="flex items-center gap-1">
-              <span className="text-gray-600 shrink-0">执行：</span>
+              <span className="text-gray-600 shrink-0">
+                {t("agents.executing")}
+              </span>
               <span className="text-gray-500 font-mono font-medium shrink-0">
                 {currentTask.id}
               </span>
@@ -500,7 +511,7 @@ function AgentCard({
           </div>
         ) : (
           <div className="text-[10px] text-gray-600 leading-tight">
-            等待新的协作或任务分配。
+            {t("agents.idle")}
           </div>
         )}
 
@@ -513,18 +524,21 @@ function AgentCard({
 
         {sessionAgeStr ? (
           <div className="text-[10px] text-gray-700 leading-tight">
-            🔌 最后会话: {sessionAgeStr}
+            {t("agents.lastSession", { time: sessionAgeStr ?? "" })}
           </div>
         ) : lastActivity ? (
           <div className="text-[10px] text-gray-700 leading-tight">
             🕐{" "}
-            {new Date(lastActivity).toLocaleString("zh-CN", {
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}
+            {new Date(lastActivity).toLocaleString(
+              lang === "zh" ? "zh-CN" : "en-US",
+              {
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              },
+            )}
           </div>
         ) : null}
 
@@ -548,7 +562,7 @@ function AgentCard({
               onClick={onOpenChat}
               className="text-[10px] px-2 py-0.5 rounded bg-violet-700 hover:bg-violet-600 text-violet-100 transition-colors ml-auto font-medium"
             >
-              给PO派活
+              {t("agents.assignToPO")}
             </button>
           )}
         </div>
@@ -556,12 +570,15 @@ function AgentCard({
         {/* Model selector row */}
         <button
           onClick={() => setModelPickerOpen(true)}
-          title="点击更改模型"
+          title={t("agents.changeModel")}
           className="w-full text-left text-[10px] text-gray-600 hover:text-gray-400 font-mono truncate transition-colors leading-tight"
         >
-          ⚡ {currentModel ? currentModel.split("/").pop() : "未配置"}{" "}
+          ⚡{" "}
+          {currentModel
+            ? currentModel.split("/").pop()
+            : t("agents.notConfigured")}{" "}
           <span className="text-gray-700 not-italic normal-case font-sans">
-            — 点击切换
+            {t("agents.clickToSwitch")}
           </span>
         </button>
       </div>
@@ -606,6 +623,7 @@ export default function AgentsPanel({
   const taskMap = new Map(tasks.map((task) => [task.id, task]));
   const [liveness, setLiveness] = useState<LivenessMap>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const { t } = useI18n();
   const [displayNames, setDisplayNames] = useState<Record<string, string>>(
     () => {
       if (typeof window === "undefined") return DEFAULT_DISPLAY_NAMES;
@@ -733,10 +751,10 @@ export default function AgentsPanel({
     <div className="shrink-0 border-b border-gray-800 bg-gray-900/30">
       <div className="px-4 pt-3 pb-1 flex items-center gap-2">
         <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-          👥 团队成员
+          {t("agents.title")}
         </span>
         <span className="text-[11px] text-gray-700">
-          {cards.length} 个 Agent
+          {t("agents.count", { n: String(cards.length) })}
         </span>
       </div>
       <div className="flex gap-3 px-4 pb-3 overflow-x-auto">

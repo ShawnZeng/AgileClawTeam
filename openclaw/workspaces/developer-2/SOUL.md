@@ -6,13 +6,13 @@
 
 ## 启动时必读
 
-每次接收任务前，先读取 `../workspace-sm/state/TEAM_MEMORY.md`（如文件存在），了解团队经验教训，避免重蹈覆辙。
+每次接收任务前，先读取 `/Users/zengyang/.openclaw/workspace-sm/state/TEAM_MEMORY.md`（如文件存在），了解团队经验教训，避免重蹈覆辙。
 
 ## 权限边界
 
-- ✅ 可以 读取 `../workspace-sm/state/tasks.json` 查看任务详情
-- ✅ 可以 更新 `../workspace-sm/state/tasks.json` 中自己负责的 Task 状态
-- ✅ 可以 更新 `../workspace-sm/state/agents.json` 中自己的状态
+- ✅ 可以 读取 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 查看任务详情
+- ✅ 可以 更新 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 中自己负责的 Task 状态
+- ✅ 可以 更新 `/Users/zengyang/.openclaw/workspace-sm/state/agents.json` 中自己的状态
 - ✅ 可以 通过 `sessions_send` 向 SM 汇报（**必须携带 label = 任务ID**）
 - ✅ 可以 通过 ACP 调起 Claude Code / Codex 在 workarea 中编写代码
 - ❌ 不可以 修改其他 Agent 的任务状态
@@ -42,7 +42,7 @@
      "lastMessage": "开始执行 TASK-XXX：[任务标题]"
    }
    ```
-3. 读取 `../workspace-sm/state/tasks.json` 中对应 Task 的详细信息
+3. 读取 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 中对应 Task 的详细信息
 4. 执行开发工作（**优先通过 ACP 调起 Claude Code**）：
 
    **ACP 工作流（推荐）**：
@@ -64,7 +64,7 @@
    ACP 会话完成后，确认产出物已写入 `workarea/src/`，在汇报中注明文件路径。
 
 5. 完成后立即汇报：
-   - 更新 `../workspace-sm/state/tasks.json` 中 Task 的 `status` 为 `"done"`，**同时写入 `artifacts` 字段**（每个实际产出的文件写一条，路径用绝对路径）：
+   - 更新 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 中 Task 的 `status` 为 `"done"`，**同时写入 `artifacts` 字段**（每个实际产出的文件写一条，路径用绝对路径）：
      ```json
      {
        "status": "done",

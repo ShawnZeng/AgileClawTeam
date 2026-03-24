@@ -6,8 +6,8 @@
 
 ## 启动步骤
 
-1. 读取 `../workspace-sm/state/agents.json`，找到 `id: "developer-2"` 的条目，查看当前状态
-2. 读取 `../workspace-sm/state/tasks.json`，查找 `assigneeId: "developer-2"` 且 `status: "in-progress"` 的任务
+1. 读取 `/Users/zengyang/.openclaw/workspace-sm/state/agents.json`，找到 `id: "developer-2"` 的条目，查看当前状态
+2. 读取 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json`，查找 `assigneeId: "developer-2"` 且 `status: "in-progress"` 的任务
 
 ## 启动后判断
 

@@ -2,47 +2,49 @@
 
 import { useEffect, useState } from "react";
 import type { GatewayStatus, DisconnectReason } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 function SetupGuide({ status }: { status: GatewayStatus }) {
+  const { t } = useI18n();
   const { disconnectReason, address, httpUrl, hasToken } = status;
 
   const steps: { title: string; code?: string; note?: string }[] = [];
 
   if (disconnectReason === "not_started") {
     steps.push(
-      { title: "确认 OpenClaw CLI 已安装", code: "openclaw --version" },
+      { title: t("setupGuide.step.checkCli"), code: "openclaw --version" },
       {
-        title: "启动 OpenClaw Gateway",
+        title: t("setupGuide.step.startGateway"),
         code: "openclaw start",
-        note: `Gateway 将在 ${httpUrl} 启动`,
+        note: t("setupGuide.step.noteGatewayStart", { url: httpUrl }),
       },
-      { title: "（可选）验证 Gateway 健康状态", code: "openclaw doctor" },
+      { title: t("setupGuide.step.verifyHealth"), code: "openclaw doctor" },
     );
   } else if (disconnectReason === "auth_failed") {
     steps.push(
       {
-        title: "检查 Gateway 的认证 Token",
-        note: "在 ~/.openclaw/openclaw.json 的 gateway.auth.token 字段，或 ~/.openclaw/.env 中查看 OPENCLAW_GATEWAY_TOKEN",
+        title: t("setupGuide.step.checkToken"),
+        note: t("setupGuide.step.noteTokenPath"),
         code: `# ~/.openclaw/openclaw.json\n{ gateway: { auth: { token: "\${OPENCLAW_GATEWAY_TOKEN}" } } }`,
       },
       {
-        title: "在 dashboard/.env.local 中配置相同的 Token",
+        title: t("setupGuide.step.configToken"),
         code: `OPENCLAW_GATEWAY_TOKEN=your_token_here`,
-        note: "修改后重启 `npm run dev` 使配置生效",
+        note: t("setupGuide.step.restartDev"),
       },
     );
     if (!hasToken) {
       steps.unshift({
-        title: "当前 Dashboard 未配置 Token",
-        note: "Gateway 要求认证但 Dashboard 未提供 Token，请在 dashboard/.env.local 中添加 OPENCLAW_GATEWAY_TOKEN",
+        title: t("setupGuide.step.noDashboardToken"),
+        note: t("setupGuide.step.gatewayNeedsAuth"),
       });
     }
   } else {
     steps.push(
-      { title: "运行诊断工具", code: "openclaw doctor" },
+      { title: t("setupGuide.step.runDiagnostic"), code: "openclaw doctor" },
       {
-        title: "检查 Gateway 连接地址",
-        note: `当前连接地址：${address}。如需修改，在 dashboard/.env.local 中设置：`,
+        title: t("setupGuide.step.checkAddress"),
+        note: t("setupGuide.step.noteAddress", { addr: address }),
         code: `OPENCLAW_GATEWAY_HOST=127.0.0.1\nOPENCLAW_GATEWAY_PORT=18789`,
       },
     );
@@ -51,13 +53,15 @@ function SetupGuide({ status }: { status: GatewayStatus }) {
   return (
     <div className="mt-4 bg-gray-900 border border-yellow-800/50 rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-yellow-400 text-sm font-semibold">配置指南</span>
+        <span className="text-yellow-400 text-sm font-semibold">
+          {t("setupGuide.badge")}
+        </span>
         <span className="text-xs text-yellow-700 bg-yellow-900/40 px-2 py-0.5 rounded">
           {disconnectReason === "not_started"
-            ? "Gateway 未运行"
+            ? t("setupGuide.notRunning")
             : disconnectReason === "auth_failed"
-              ? "认证失败"
-              : "连接异常"}
+              ? t("setupGuide.authFailed")
+              : t("setupGuide.connectionError")}
         </span>
       </div>
       <ol className="space-y-3">
@@ -82,7 +86,7 @@ function SetupGuide({ status }: { status: GatewayStatus }) {
       </ol>
       <div className="mt-3 pt-3 border-t border-gray-800 flex items-center gap-2">
         <span className="text-xs text-gray-600">
-          Dashboard 每 5 秒自动重试连接
+          {t("setupGuide.autoRetry")}
         </span>
         <a
           href="https://docs.openclaw.ai/gateway/configuration"
@@ -90,23 +94,26 @@ function SetupGuide({ status }: { status: GatewayStatus }) {
           rel="noopener noreferrer"
           className="text-xs text-blue-500 hover:text-blue-400 ml-auto shrink-0"
         >
-          OpenClaw 配置文档 →
+          {t("setupGuide.docs")}
         </a>
       </div>
     </div>
   );
 }
 
-function reasonLabel(reason: DisconnectReason): string {
+function reasonLabel(
+  reason: DisconnectReason | null,
+  t: (k: string) => string,
+): string {
   switch (reason) {
     case "not_started":
-      return "Gateway 未运行";
+      return t("setupGuide.notRunning");
     case "auth_failed":
-      return "认证失败";
+      return t("setupGuide.authFailed");
     case "network_error":
-      return "网络错误";
+      return t("setupGuide.networkError");
     default:
-      return "连接中...";
+      return t("setupGuide.connecting");
   }
 }
 
@@ -115,6 +122,7 @@ export default function OpenclawStatus() {
   const [showGuide, setShowGuide] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [restartMsg, setRestartMsg] = useState<string | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -144,9 +152,13 @@ export default function OpenclawStatus() {
     try {
       const res = await fetch("/api/openclaw/restart", { method: "POST" });
       const data = await res.json();
-      setRestartMsg(data.ok ? "重启成功，等待重连…" : `失败：${data.error}`);
+      setRestartMsg(
+        data.ok
+          ? t("status.restartSuccess")
+          : t("status.restartFailed", { error: String(data.error ?? "") }),
+      );
     } catch {
-      setRestartMsg("请求失败");
+      setRestartMsg(t("status.requestFailed"));
     } finally {
       setRestarting(false);
       setTimeout(() => setRestartMsg(null), 5000);
@@ -186,8 +198,10 @@ export default function OpenclawStatus() {
           }`}
         >
           {isConnected
-            ? "Connected"
-            : reasonLabel(status?.disconnectReason ?? null)}
+            ? t("gateway.connected")
+            : isConnecting
+              ? t("gateway.connecting")
+              : reasonLabel(status?.disconnectReason ?? null, t)}
         </span>
 
         {isConnected && status?.version && (
@@ -203,13 +217,13 @@ export default function OpenclawStatus() {
             disabled={restarting}
             className="ml-auto text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-700 hover:border-gray-500 rounded px-2 py-0.5 transition-colors shrink-0"
           >
-            {restarting ? "重启中…" : "重启 Gateway"}
+            {restarting ? t("status.restarting") : t("status.restartGateway")}
           </button>
         )}
 
         {restartMsg && (
           <span
-            className={`text-xs shrink-0 ${restartMsg.startsWith("重启成功") ? "text-green-400" : "text-red-400"}`}
+            className={`text-xs shrink-0 ${restartMsg.startsWith(t("status.restartSuccess").slice(0, 4)) ? "text-green-400" : "text-red-400"}`}
           >
             {restartMsg}
           </span>
@@ -220,7 +234,7 @@ export default function OpenclawStatus() {
             onClick={() => setShowGuide((v) => !v)}
             className="text-xs text-yellow-500 hover:text-yellow-400 underline shrink-0"
           >
-            {showGuide ? "隐藏配置指南" : "查看配置指南"}
+            {showGuide ? t("status.hideGuide") : t("status.showGuide")}
           </button>
         )}
       </div>
@@ -231,7 +245,9 @@ export default function OpenclawStatus() {
       {/* Install dir footer */}
       {status?.installDir && (
         <div className="mt-3 pt-2 border-t border-gray-700/60 flex items-center gap-1.5">
-          <span className="text-xs text-gray-600">安装目录</span>
+          <span className="text-xs text-gray-600">
+            {t("status.installDir")}
+          </span>
           <span className="text-xs font-mono text-gray-500">
             {status.installDir}
           </span>

@@ -4,6 +4,7 @@ import type { BacklogItem, Task, Sprint, AgentState } from "@/lib/types";
 import { useDisplayNames } from "@/lib/useDisplayNames";
 import { formatAgentLabel } from "@/lib/agentDisplay";
 import { AgentAvatar } from "@/components/AgentAvatar";
+import { useI18n } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -29,20 +30,20 @@ const AGENT_STATUS_DOT: Record<AgentState["status"], string> = {
   offline: "bg-gray-700",
 };
 
-const AGENT_STATUS_LABEL: Record<AgentState["status"], string> = {
-  idle: "空闲",
-  working: "工作中",
-  blocked: "阻塞",
-  waiting: "等待中",
-  offline: "离线",
+const AGENT_STATUS_LABEL_KEY: Record<AgentState["status"], string> = {
+  idle: "status.idle",
+  working: "status.working",
+  blocked: "status.blocked",
+  waiting: "status.waiting",
+  offline: "status.offline",
 };
 
-const PHASE_LABELS: Record<string, string> = {
-  planning: "计划中",
-  execution: "执行中",
-  review: "评审中",
-  retrospective: "回顾中",
-  done: "已完成",
+const PHASE_LABEL_KEY: Record<string, string> = {
+  planning: "phase.inPlanning",
+  execution: "phase.inExecuting",
+  review: "phase.inReviewing",
+  retrospective: "phase.inRetrospective",
+  done: "phase.completed",
 };
 
 const PHASE_COLORS: Record<string, string> = {
@@ -120,14 +121,15 @@ function BacklogCard({ item }: { item: BacklogItem }) {
 }
 
 function BacklogColumn({ backlog }: { backlog: BacklogItem[] }) {
+  const { t } = useI18n();
   const sorted = [...backlog].sort((a, b) => a.priority - b.priority);
   return (
     <div className="flex flex-col h-full border-r border-gray-800">
-      <ColHeader label="待办事项" count={backlog.length} />
+      <ColHeader label={t("board.backlog")} count={backlog.length} />
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {sorted.length === 0 ? (
           <div className="text-xs text-gray-700 text-center py-6 border border-dashed border-gray-800 rounded">
-            暂无待办事项
+            {t("board.backlogEmpty")}
           </div>
         ) : (
           sorted.map((item) => <BacklogCard key={item.id} item={item} />)
@@ -140,24 +142,24 @@ function BacklogColumn({ backlog }: { backlog: BacklogItem[] }) {
 // ── Center: Task kanban ────────────────────────────────────────────────────────
 
 const KANBAN_COLS: {
-  label: string;
+  labelKey: string;
   colorClass: string;
-  filter: (t: Task) => boolean;
+  filter: (task: Task) => boolean;
 }[] = [
   {
-    label: "待处理",
+    labelKey: "board.colPending",
     colorClass: "text-gray-400",
-    filter: (t) => t.status === "pending" || t.status === "blocked",
+    filter: (task) => task.status === "pending" || task.status === "blocked",
   },
   {
-    label: "进行中",
+    labelKey: "status.inProgress",
     colorClass: "text-blue-400",
-    filter: (t) => t.status === "in-progress",
+    filter: (task) => task.status === "in-progress",
   },
   {
-    label: "已完成",
+    labelKey: "status.done",
     colorClass: "text-green-400",
-    filter: (t) => t.status === "done",
+    filter: (task) => task.status === "done",
   },
 ];
 
@@ -223,26 +225,27 @@ function KanbanCenter({
   backlog: BacklogItem[];
   displayNames: Record<string, string>;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex h-full min-w-0">
       {KANBAN_COLS.map((col, idx) => {
         const colTasks = tasks.filter(col.filter);
         return (
           <div
-            key={col.label}
+            key={col.labelKey}
             className={`flex flex-col flex-1 min-w-0 h-full ${
               idx < KANBAN_COLS.length - 1 ? "border-r border-gray-800" : ""
             }`}
           >
             <ColHeader
-              label={col.label}
+              label={t(col.labelKey)}
               count={colTasks.length}
               colorClass={col.colorClass}
             />
             <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
               {colTasks.length === 0 ? (
                 <div className="text-xs text-gray-700 text-center py-6 border border-dashed border-gray-800 rounded">
-                  暂无
+                  {t("board.empty")}
                 </div>
               ) : (
                 colTasks.map((task) => (
@@ -271,6 +274,7 @@ function AgentCard({
   agent: AgentState;
   displayNames: Record<string, string>;
 }) {
+  const { t } = useI18n();
   return (
     <div className="bg-gray-800 border border-gray-700/60 rounded px-2.5 py-2 flex items-start gap-2">
       <AgentAvatar agentId={agent.id} role={agent.role} size={20} />
@@ -281,11 +285,11 @@ function AgentCard({
           </span>
           <div
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${AGENT_STATUS_DOT[agent.status]}`}
-            title={AGENT_STATUS_LABEL[agent.status]}
+            title={t(AGENT_STATUS_LABEL_KEY[agent.status])}
           />
         </div>
         <div className="text-xs text-gray-600 mt-0.5">
-          {AGENT_STATUS_LABEL[agent.status]}
+          {t(AGENT_STATUS_LABEL_KEY[agent.status])}
           {agent.currentTaskId && (
             <span className="text-gray-700 ml-1">· {agent.currentTaskId}</span>
           )}
@@ -304,14 +308,17 @@ function AgentCard({
 }
 
 function SprintMini({ sprint }: { sprint: Sprint | null }) {
+  const { t } = useI18n();
   if (!sprint?.id) {
     return (
       <div className="text-xs text-gray-700 text-center py-2 border border-dashed border-gray-800 rounded">
-        暂无 Sprint
+        {t("board.noSprint")}
       </div>
     );
   }
-  const phaseLabel = PHASE_LABELS[sprint.status ?? ""] ?? sprint.status;
+  const phaseLabel = t(
+    PHASE_LABEL_KEY[sprint.status ?? ""] ?? sprint.status ?? "",
+  );
   const phaseColor =
     PHASE_COLORS[sprint.status ?? ""] ?? "bg-gray-800 text-gray-400";
   return (
@@ -332,7 +339,9 @@ function SprintMini({ sprint }: { sprint: Sprint | null }) {
         </p>
       )}
       <div className="text-xs text-gray-700 mt-0.5">
-        承诺 {sprint.committedItemIds?.length ?? 0} 个需求
+        {t("board.sprintCommits", {
+          n: String(sprint.committedItemIds?.length ?? 0),
+        })}
       </div>
     </div>
   );
@@ -347,13 +356,14 @@ function AgentColumn({
   sprint: Sprint | null;
   displayNames: Record<string, string>;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col h-full border-l border-gray-800">
-      <ColHeader label="团队状态" count={agents.length} />
+      <ColHeader label={t("board.teamStatus")} count={agents.length} />
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {agents.length === 0 ? (
           <div className="text-xs text-gray-700 text-center py-6 border border-dashed border-gray-800 rounded">
-            暂无 Agent
+            {t("board.noAgents")}
           </div>
         ) : (
           agents.map((agent) => (

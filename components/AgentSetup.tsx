@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { SetupCheckResult, SetupApplyResult, AcpCheckResult } from "@/lib/types";
+import type {
+  SetupCheckResult,
+  SetupApplyResult,
+  AcpCheckResult,
+} from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 const MIN_VERSION = "2026.3.12";
 
@@ -49,15 +54,16 @@ function IconLoading() {
 
 // ─── Fix guides ─────────────────────────────────────────────────────────────
 function InstallGuide() {
+  const { t } = useI18n();
   return (
     <div className="mt-4 bg-gray-900 border border-gray-700 rounded-lg p-4 space-y-3">
       <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-        安装 OpenClaw
+        {t("install.title")}
       </div>
       <pre className="text-xs bg-gray-800 rounded px-3 py-2 text-green-400 font-mono overflow-x-auto">
         {"curl -fsSL https://openclaw.ai/install.sh | bash"}
       </pre>
-      <div className="text-xs text-gray-500">安装后初始化：</div>
+      <div className="text-xs text-gray-500">{t("install.initAfter")}</div>
       <pre className="text-xs bg-gray-800 rounded px-3 py-2 text-green-400 font-mono overflow-x-auto">
         {"openclaw onboard --install-daemon"}
       </pre>
@@ -67,43 +73,45 @@ function InstallGuide() {
         rel="noopener noreferrer"
         className="text-xs text-blue-500 hover:text-blue-400"
       >
-        查看安装文档 →
+        {t("install.viewDocs")}
       </a>
     </div>
   );
 }
 
 function UpgradeGuide({ current }: { current: string | null }) {
+  const { t } = useI18n();
   return (
     <div className="mt-4 bg-gray-900 border border-yellow-800/50 rounded-lg p-4 space-y-3">
       <div className="text-xs font-medium text-yellow-400 uppercase tracking-wide">
-        版本过低{current ? `（当前 v${current}，需 ≥ ${MIN_VERSION}）` : ""}
+        {current
+          ? t("upgrade.title", { current, min: MIN_VERSION })
+          : t("upgrade.titleNoVersion")}
       </div>
-      <div className="text-xs text-gray-400">运行以下命令升级 OpenClaw：</div>
+      <div className="text-xs text-gray-400">{t("upgrade.runCommand")}</div>
       <pre className="text-xs bg-gray-800 rounded px-3 py-2 text-green-400 font-mono overflow-x-auto">
         {"openclaw update"}
       </pre>
-      <div className="text-xs text-gray-500">升级后重新打开此页面。</div>
+      <div className="text-xs text-gray-500">{t("upgrade.refreshAfter")}</div>
     </div>
   );
 }
 
 function GatewayGuide() {
+  const { t } = useI18n();
   return (
     <div className="mt-4 bg-gray-900 border border-gray-700 rounded-lg p-4 space-y-3">
       <div className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-        启动 Gateway
+        {t("gwguide.startTitle")}
       </div>
       <pre className="text-xs bg-gray-800 rounded px-3 py-2 text-green-400 font-mono overflow-x-auto">
         {"openclaw start"}
       </pre>
-      <div className="text-xs text-gray-500">验证状态：</div>
+      <div className="text-xs text-gray-500">{t("gwguide.verifyStatus")}</div>
       <pre className="text-xs bg-gray-800 rounded px-3 py-2 text-green-400 font-mono overflow-x-auto">
         {"openclaw status"}
       </pre>
-      <div className="text-xs text-gray-500">
-        启动后刷新此页面，Dashboard 将自动重新检查连接。
-      </div>
+      <div className="text-xs text-gray-500">{t("gwguide.refreshAfter")}</div>
     </div>
   );
 }
@@ -179,6 +187,8 @@ function WorkareaSection() {
   const [workareaPath, setWorkareaPath] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [saveMsgOk, setSaveMsgOk] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     fetch("/api/config")
@@ -200,9 +210,15 @@ function WorkareaSection() {
         body: JSON.stringify({ workareaPath }),
       });
       const d = (await res.json()) as { ok: boolean; error?: string };
-      setSaveMsg(d.ok ? "已保存" : `保存失败：${d.error ?? ""}`);
+      setSaveMsgOk(d.ok);
+      setSaveMsg(
+        d.ok
+          ? t("workarea.saved")
+          : t("workarea.saveFailed", { error: d.error ?? "" }),
+      );
     } catch {
-      setSaveMsg("请求失败");
+      setSaveMsgOk(false);
+      setSaveMsg(t("workarea.requestFailed"));
     } finally {
       setSaving(false);
       setTimeout(() => setSaveMsg(null), 3000);
@@ -212,11 +228,11 @@ function WorkareaSection() {
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
       <SectionHeader
-        title="Workarea 目录"
-        subtitle="Agent 产出物（代码、文档、测试）统一写入此目录"
+        title={t("workarea.title")}
+        subtitle={t("workarea.subtitle")}
       />
       {loading ? (
-        <div className="text-xs text-gray-600">加载中…</div>
+        <div className="text-xs text-gray-600">{t("workarea.loading")}</div>
       ) : (
         <div className="flex gap-2 items-center">
           <input
@@ -231,13 +247,13 @@ function WorkareaSection() {
             disabled={saving}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors shrink-0"
           >
-            {saving ? "保存中…" : "保存"}
+            {saving ? t("workarea.saving") : t("workarea.save")}
           </button>
         </div>
       )}
       {saveMsg && (
         <div
-          className={`text-xs ${saveMsg === "已保存" ? "text-green-400" : "text-red-400"}`}
+          className={`text-xs ${saveMsgOk ? "text-green-400" : "text-red-400"}`}
         >
           {saveMsg}
         </div>
@@ -260,6 +276,8 @@ function AcpSection() {
   const [priority, setPriority] = useState<string[]>([]);
   const [savingPriority, setSavingPriority] = useState(false);
   const [priorityMsg, setPriorityMsg] = useState<string | null>(null);
+  const [priorityMsgOk, setPriorityMsgOk] = useState(false);
+  const { t } = useI18n();
 
   const TOOL_LABELS: Record<string, string> = {
     claude: "Claude Code",
@@ -288,7 +306,7 @@ function AcpSection() {
     setToolMessages((prev) => ({ ...prev, [tool]: { ok: true, text: "" } }));
     try {
       let ok = false;
-      let errText = "安装失败";
+      let errText = t("acp.installFailed");
 
       if (tool === "acpx") {
         const res = await fetch("/api/config/install-acp", { method: "POST" });
@@ -298,7 +316,7 @@ function AcpSection() {
           error?: string;
         };
         ok = d.ok;
-        errText = d.error ?? "安装失败";
+        errText = d.error ?? t("acp.installFailed");
         if (d.ok) setNeedsRestart(!!d.needsRestart);
       } else {
         const res = await fetch("/api/config/install-tool", {
@@ -308,12 +326,12 @@ function AcpSection() {
         });
         const d = (await res.json()) as { ok: boolean; error?: string };
         ok = d.ok;
-        errText = d.error ?? "安装失败";
+        errText = d.error ?? t("acp.installFailed");
       }
 
       setToolMessages((prev) => ({
         ...prev,
-        [tool]: { ok, text: ok ? "安装成功" : errText },
+        [tool]: { ok, text: ok ? t("acp.installSuccess") : errText },
       }));
 
       if (ok) {
@@ -334,7 +352,7 @@ function AcpSection() {
     } catch {
       setToolMessages((prev) => ({
         ...prev,
-        [tool]: { ok: false, text: "请求失败" },
+        [tool]: { ok: false, text: t("acp.requestFailed") },
       }));
     } finally {
       setInstallingTool(null);
@@ -365,9 +383,15 @@ function AcpSection() {
         body: JSON.stringify({ toolPriority: priority }),
       });
       const d = (await res.json()) as { ok: boolean; error?: string };
-      setPriorityMsg(d.ok ? "已保存" : `保存失败：${d.error ?? ""}`);
+      setPriorityMsgOk(d.ok);
+      setPriorityMsg(
+        d.ok
+          ? t("workarea.saved")
+          : t("workarea.saveFailed", { error: d.error ?? "" }),
+      );
     } catch {
-      setPriorityMsg("请求失败");
+      setPriorityMsgOk(false);
+      setPriorityMsg(t("acp.requestFailed"));
     } finally {
       setSavingPriority(false);
       setTimeout(() => setPriorityMsg(null), 3000);
@@ -378,19 +402,20 @@ function AcpSection() {
     tool === "claude" ? !!data?.claudeInstalled : !!data?.codexInstalled;
 
   const toolRows: Array<{ id: ToolId; label: string; installed: boolean }> = [
-    { id: "acpx", label: "acpx 插件", installed: !!data?.acpxInstalled },
+    {
+      id: "acpx",
+      label: t("acp.acpxPlugin"),
+      installed: !!data?.acpxInstalled,
+    },
     { id: "claude", label: "Claude Code", installed: !!data?.claudeInstalled },
     { id: "codex", label: "Codex CLI", installed: !!data?.codexInstalled },
   ];
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
-      <SectionHeader
-        title="编程工具（ACP）"
-        subtitle="Agent 通过 ACP 调起编程工具执行代码任务（可选）"
-      />
+      <SectionHeader title={t("acp.title")} subtitle={t("acp.subtitle")} />
       {loading ? (
-        <div className="text-xs text-gray-600">加载中…</div>
+        <div className="text-xs text-gray-600">{t("acp.loading")}</div>
       ) : (
         <>
           {/* Per-tool status rows with inline install buttons */}
@@ -406,7 +431,7 @@ function AcpSection() {
                   </span>
                   {installed ? (
                     <span className="text-xs font-mono text-green-400">
-                      已安装
+                      {t("acp.installed")}
                     </span>
                   ) : (
                     <button
@@ -417,7 +442,9 @@ function AcpSection() {
                       {installingTool === id && (
                         <span className="w-2.5 h-2.5 border border-blue-300 border-t-transparent rounded-full animate-spin" />
                       )}
-                      {installingTool === id ? "安装中…" : "安装"}
+                      {installingTool === id
+                        ? t("acp.installing")
+                        : t("acp.install")}
                     </button>
                   )}
                 </div>
@@ -434,14 +461,14 @@ function AcpSection() {
 
           {needsRestart && (
             <div className="text-xs text-amber-400">
-              acpx 已安装，需要重启 Gateway 使配置生效。
+              {t("acp.needsRestart")}
             </div>
           )}
 
           {/* Tool priority config — when acpx installed */}
           {data?.acpxInstalled && (
             <div className="space-y-2">
-              <div className="text-xs text-gray-500">编程工具优先级（从高到低）</div>
+              <div className="text-xs text-gray-500">{t("acp.priority")}</div>
               {priority.map((tool, i) => (
                 <div key={tool} className="flex items-center gap-2">
                   <span className="text-xs text-gray-600 w-4 text-right">
@@ -451,7 +478,7 @@ function AcpSection() {
                     {TOOL_LABELS[tool] ?? tool}
                     {!toolInstalled(tool) && (
                       <span className="ml-1 text-xs text-yellow-600">
-                        （未安装）
+                        {t("acp.notInstalled")}
                       </span>
                     )}
                   </span>
@@ -479,11 +506,13 @@ function AcpSection() {
                   disabled={savingPriority}
                   className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
                 >
-                  {savingPriority ? "保存中…" : "保存优先级"}
+                  {savingPriority
+                    ? t("acp.savingPriority")
+                    : t("acp.savePriority")}
                 </button>
                 {priorityMsg && (
                   <span
-                    className={`text-xs ${priorityMsg === "已保存" ? "text-green-400" : "text-red-400"}`}
+                    className={`text-xs ${priorityMsgOk ? "text-green-400" : "text-red-400"}`}
                   >
                     {priorityMsg}
                   </span>
@@ -501,47 +530,74 @@ function AcpSection() {
 function ReinstallDialog({
   onConfirm,
   onCancel,
+  defaultLang,
 }: {
-  onConfirm: () => void;
+  onConfirm: (lang: "zh" | "en") => void;
   onCancel: () => void;
+  defaultLang: "zh" | "en";
 }) {
   const [seconds, setSeconds] = useState(10);
+  const [selectedLang, setSelectedLang] = useState<"zh" | "en">(defaultLang);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (seconds <= 0) return;
-    const t = setInterval(() => setSeconds((s) => s - 1), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setSeconds((s) => s - 1), 1000);
+    return () => clearInterval(timer);
   }, [seconds]);
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
         <div>
-          <h3 className="text-lg font-bold text-gray-100">重新注册 Agent</h3>
+          <h3 className="text-lg font-bold text-gray-100">
+            {t("reinstall.title")}
+          </h3>
           <p className="text-sm text-gray-400 mt-2">
-            此操作将从 OpenClaw Gateway 中
-            <span className="text-red-400 font-medium">删除</span>现有的{" "}
-            <code className="font-mono text-yellow-300">po</code> 和{" "}
-            <code className="font-mono text-yellow-300">sm</code>{" "}
-            Agent，并重新复制 Workspace 文件后重新注册。
+            {t("reinstall.bodyPre")}
+            <span className="text-red-400 font-medium">
+              {t("reinstall.bodyBold")}
+            </span>
+            {t("reinstall.bodyPost")}
           </p>
-          <p className="text-xs text-gray-500 mt-2">
-            进行中的会话将被中断。请确认后再继续。
-          </p>
+          <p className="text-xs text-gray-500 mt-2">{t("reinstall.warning")}</p>
+        </div>
+        {/* Language picker */}
+        <div className="space-y-1.5">
+          <div className="text-xs text-gray-400">
+            {t("reinstall.langLabel")}
+          </div>
+          <div className="flex gap-2">
+            {(["zh", "en"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setSelectedLang(l)}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  selectedLang === l
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                {t(l === "zh" ? "reinstall.langZh" : "reinstall.langEn")}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex gap-3 justify-end pt-1">
           <button
             onClick={onCancel}
             className="px-4 py-2 text-sm text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
           >
-            取消
+            {t("reinstall.cancel")}
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(selectedLang)}
             disabled={seconds > 0}
             className="px-4 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-600 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg transition-colors min-w-[160px]"
           >
-            {seconds > 0 ? `确认重新注册 (${seconds}s)` : "确认重新注册"}
+            {seconds > 0
+              ? t("reinstall.confirmCountdown", { s: String(seconds) })
+              : t("reinstall.confirm")}
           </button>
         </div>
       </div>
@@ -561,6 +617,8 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
   const [reinstallDone, setReinstallDone] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [restartMsg, setRestartMsg] = useState<string | null>(null);
+  const [restartMsgOk, setRestartMsgOk] = useState(false);
+  const { t, lang } = useI18n();
 
   const doCheck = useCallback(async () => {
     setPhase("checking");
@@ -576,7 +634,11 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
         data.hasAgents
       ) {
         try {
-          await fetch("/api/openclaw-setup", { method: "POST" });
+          await fetch("/api/openclaw-setup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          });
         } catch {
           /* ignore */
         }
@@ -609,12 +671,16 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
     doCheck,
   ]);
 
-  const doReinstall = async () => {
+  const doReinstall = async (reinstallLang: "zh" | "en") => {
     setReinstalling(true);
     setCreateError(null);
     setReinstallDone(false);
     try {
-      const res = await fetch("/api/openclaw-setup", { method: "PUT" });
+      const res = await fetch("/api/openclaw-setup", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: reinstallLang }),
+      });
       const data = (await res.json()) as SetupApplyResult;
       if (data.success) {
         setReinstallDone(true);
@@ -625,7 +691,9 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
         );
       }
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "请求失败");
+      setCreateError(
+        err instanceof Error ? err.message : t("acp.requestFailed"),
+      );
     } finally {
       setReinstalling(false);
     }
@@ -637,12 +705,19 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
     try {
       const res = await fetch("/api/openclaw/restart", { method: "POST" });
       const data = (await res.json()) as { ok: boolean; error?: string };
+      setRestartMsgOk(data.ok);
       setRestartMsg(
-        data.ok ? "重启成功，Gateway 重新上线中…" : `失败：${data.error ?? ""}`,
+        data.ok
+          ? t("setup.agentsReregistered") +
+              " - " +
+              t("setup.workspaceUpdated").slice(0, 20) +
+              "..."
+          : t("status.restartFailed", { error: data.error ?? "" }),
       );
       if (data.ok) setReinstallDone(false);
     } catch {
-      setRestartMsg("请求失败");
+      setRestartMsgOk(false);
+      setRestartMsg(t("status.requestFailed"));
     } finally {
       setRestarting(false);
       setTimeout(() => setRestartMsg(null), 6000);
@@ -653,7 +728,11 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
     setPhase("creating");
     setCreateError(null);
     try {
-      const res = await fetch("/api/openclaw-setup", { method: "POST" });
+      const res = await fetch("/api/openclaw-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang }),
+      });
       const data = (await res.json()) as SetupApplyResult;
       if (data.success) {
         onComplete();
@@ -664,7 +743,9 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
         setPhase("ready");
       }
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "请求失败");
+      setCreateError(
+        err instanceof Error ? err.message : t("acp.requestFailed"),
+      );
       setPhase("ready");
     }
   };
@@ -684,14 +765,20 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
           : "ok";
 
   const cliDetail = isChecking
-    ? "检查中…"
+    ? t("setup.checking")
     : !r
-      ? "无法检测"
+      ? t("setup.undetectable")
       : !r.cliInstalled
-        ? "未安装"
+        ? t("setup.notInstalled")
         : !r.cliVersionOk
-          ? `v${r.cliVersion ?? "?"} (需 ≥ ${MIN_VERSION})`
-          : `v${r.cliVersion ?? "?"}  ✓ 满足 ≥ ${MIN_VERSION}`;
+          ? t("setup.cliVersionWarn", {
+              ver: r.cliVersion ?? "?",
+              min: MIN_VERSION,
+            })
+          : t("setup.cliVersionOk", {
+              ver: r.cliVersion ?? "?",
+              min: MIN_VERSION,
+            });
 
   const cliOk = !isChecking && !!r?.cliInstalled && !!r?.cliVersionOk;
 
@@ -706,14 +793,16 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
           : "fail";
 
   const gwDetail = isChecking
-    ? "检查中…"
+    ? t("setup.checking")
     : !cliOk
-      ? "需先满足 CLI 条件"
+      ? t("setup.waitingForCli")
       : r?.gatewayConnected
-        ? `已连接 ${r.gatewayAddress ?? ""}`
+        ? t("setup.gatewayConnected", { addr: r.gatewayAddress ?? "" })
         : r?.gatewayRunning
-          ? `连接中… ${r.gatewayAddress ?? ""}`
-          : `未运行 ${r?.gatewayAddress ? `(${r.gatewayAddress})` : ""}`;
+          ? t("setup.gatewayConnecting", { addr: r.gatewayAddress ?? "" })
+          : r?.gatewayAddress
+            ? `${t("setup.gatewayNotRunning")} (${r.gatewayAddress})`
+            : t("setup.gatewayNotRunning");
 
   const agentStatus: RowStatus = isChecking
     ? "loading"
@@ -724,12 +813,14 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
         : "warn";
 
   const agentDetail = isChecking
-    ? "检查中…"
+    ? t("setup.checking")
     : !cliOk || !r?.gatewayConnected
-      ? "需先满足前置条件"
+      ? t("setup.waitingForPrereqs")
       : r?.hasAgents
-        ? "po, sm 已注册"
-        : `${r?.missingAgents.join(", ")} 待注册`;
+        ? t("setup.agentsInstalled")
+        : t("setup.agentsMissing", {
+            agents: r?.missingAgents.join(", ") ?? "",
+          });
 
   const allGood =
     !isChecking && cliOk && !!r?.gatewayConnected && !!r?.hasAgents;
@@ -748,33 +839,37 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-100">系统配置</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              检查环境、配置工作目录与编程工具
-            </p>
+            <h1 className="text-2xl font-bold text-gray-100">
+              {t("setup.title")}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">{t("setup.subtitle")}</p>
           </div>
           {!autoAdvance && (
             <button
               onClick={onComplete}
               className="text-sm text-gray-500 hover:text-gray-300 transition-colors mt-1 shrink-0"
             >
-              ← 返回 Dashboard
+              {t("header.backToDashboard")}
             </button>
           )}
         </div>
 
         {/* Section 1: 环境检查 */}
         <div className="space-y-2">
-          <SectionHeader title="环境检查" />
+          <SectionHeader title={t("setup.envCheck")} />
           <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 divide-y divide-gray-700/60">
-            <CheckRow status={cliStatus} label="OpenClaw CLI" detail={cliDetail} />
-            <CheckRow status={gwStatus} label="Gateway 连接" detail={gwDetail} />
-            <CheckRow status={agentStatus} label="Agent 注册" detail={agentDetail} />
+            <CheckRow
+              status={cliStatus}
+              label="OpenClaw CLI"
+              detail={cliDetail}
+            />
+            <CheckRow status={gwStatus} label="Gateway" detail={gwDetail} />
+            <CheckRow status={agentStatus} label="Agent" detail={agentDetail} />
           </div>
 
           {r && (
             <div className="flex items-center gap-2 text-xs text-gray-600">
-              <span>数据目录</span>
+              <span>{t("setup.dataDir")}</span>
               <span className="font-mono text-gray-500">{r.installDir}</span>
             </div>
           )}
@@ -786,7 +881,7 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
             <div className="flex items-center gap-3 bg-gray-900 border border-yellow-800/50 rounded-lg px-4 py-3">
               <span className="w-4 h-4 border-2 border-yellow-700 border-t-yellow-400 rounded-full animate-spin shrink-0" />
               <span className="text-sm text-yellow-300">
-                Gateway 进程已运行，WebSocket 握手中，请稍候…
+                {t("setup.handshaking")}
               </span>
             </div>
           )}
@@ -806,7 +901,9 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
                 {phase === "creating" && (
                   <span className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
                 )}
-                {phase === "creating" ? "正在注册…" : "在 OpenClaw 中注册 Agent"}
+                {phase === "creating"
+                  ? t("setup.registering")
+                  : t("setup.registerAgents")}
               </button>
             </div>
           )}
@@ -821,10 +918,10 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
                     </span>
                     <div>
                       <p className="text-sm font-medium text-amber-300">
-                        Agent 已重新注册
+                        {t("setup.agentsReregistered")}
                       </p>
                       <p className="text-xs text-amber-600 mt-0.5">
-                        Workspace 文件已更新，需要重启 Gateway 使新配置完全生效。
+                        {t("setup.workspaceUpdated")}
                       </p>
                     </div>
                   </div>
@@ -837,11 +934,13 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
                       {restarting && (
                         <span className="w-3.5 h-3.5 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
                       )}
-                      {restarting ? "重启中…" : "立即重启 Gateway"}
+                      {restarting
+                        ? t("setup.restarting")
+                        : t("setup.restartGateway")}
                     </button>
                     {restartMsg && (
                       <span
-                        className={`text-xs ${restartMsg.startsWith("重启成功") ? "text-green-400" : "text-red-400"}`}
+                        className={`text-xs ${restartMsgOk ? "text-green-400" : "text-red-400"}`}
                       >
                         {restartMsg}
                       </span>
@@ -857,7 +956,9 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
                 {reinstalling && (
                   <span className="w-4 h-4 border-2 border-gray-500 border-t-gray-300 rounded-full animate-spin" />
                 )}
-                {reinstalling ? "重新注册中…" : "重新注册 Agent"}
+                {reinstalling
+                  ? t("setup.reregistering")
+                  : t("setup.reregisterAgents")}
               </button>
             </div>
           )}
@@ -872,7 +973,7 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
                 onClick={() => void doCheck()}
                 className="w-full py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium rounded-lg transition-colors"
               >
-                重新检查
+                {t("setup.recheck")}
               </button>
             )}
         </div>
@@ -886,9 +987,10 @@ export default function AgentSetup({ onComplete, autoAdvance = true }: Props) {
 
       {showReinstallDialog && (
         <ReinstallDialog
-          onConfirm={() => {
+          defaultLang={lang}
+          onConfirm={(reinstallLang) => {
             setShowReinstallDialog(false);
-            void doReinstall();
+            void doReinstall(reinstallLang);
           }}
           onCancel={() => setShowReinstallDialog(false)}
         />

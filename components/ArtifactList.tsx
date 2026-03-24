@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Artifact } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 // ── Style maps ─────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ function extractCommand(usage: string): { cmd: string; desc: string } | null {
 
 function InlineCopy({
   text,
-  title = "复制",
+  title,
   className = "text-gray-700 hover:text-gray-300",
 }: {
   text: string;
@@ -63,6 +64,8 @@ function InlineCopy({
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useI18n();
+  const displayTitle = title ?? t("artifact.copy");
   const handle = (e: React.MouseEvent) => {
     e.stopPropagation();
     void navigator.clipboard.writeText(text).then(() => {
@@ -73,7 +76,7 @@ function InlineCopy({
   return (
     <button
       onClick={handle}
-      title={title}
+      title={displayTitle}
       className={`shrink-0 text-[9px] transition-colors leading-none ${className}`}
     >
       {copied ? "✓" : "⎘"}
@@ -84,6 +87,7 @@ function InlineCopy({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function ArtifactList({ artifacts }: { artifacts: Artifact[] }) {
+  const { t } = useI18n();
   if (artifacts.length === 0) return null;
 
   return (
@@ -113,7 +117,7 @@ export function ArtifactList({ artifacts }: { artifacts: Artifact[] }) {
               >
                 {a.location}
               </span>
-              <InlineCopy text={a.location} title="复制路径" />
+              <InlineCopy text={a.location} title={t("artifact.copyPath")} />
             </div>
 
             {/* Row 2: usage — command line or plain description */}
@@ -128,7 +132,7 @@ export function ArtifactList({ artifacts }: { artifacts: Artifact[] }) {
                     </span>
                     <InlineCopy
                       text={parsed.cmd}
-                      title="复制命令"
+                      title={t("artifact.copyCmd")}
                       className="text-gray-500 hover:text-green-300"
                     />
                   </div>

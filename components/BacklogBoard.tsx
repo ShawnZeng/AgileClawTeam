@@ -2,15 +2,20 @@
 
 import { useState } from "react";
 import type { BacklogItem, Task } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 const STATUS_COLUMNS: {
   key: BacklogItem["status"];
-  label: string;
+  labelKey: string;
   color: string;
 }[] = [
-  { key: "pending", label: "未开始", color: "text-gray-400" },
-  { key: "in-progress", label: "进行中", color: "text-blue-400" },
-  { key: "done", label: "已完成", color: "text-green-400" },
+  {
+    key: "pending",
+    labelKey: "status.notStartedShort",
+    color: "text-gray-400",
+  },
+  { key: "in-progress", labelKey: "status.inProgress", color: "text-blue-400" },
+  { key: "done", labelKey: "status.done", color: "text-green-400" },
 ];
 
 const PRIORITY_COLORS = [
@@ -22,8 +27,9 @@ const PRIORITY_COLORS = [
 
 function ItemCard({ item, tasks }: { item: BacklogItem; tasks: Task[] }) {
   const [expanded, setExpanded] = useState(false);
-  const linkedTasks = tasks.filter((t) => item.taskIds.includes(t.id));
-  const doneTasks = linkedTasks.filter((t) => t.status === "done").length;
+  const { t } = useI18n();
+  const linkedTasks = tasks.filter((tk) => item.taskIds.includes(tk.id));
+  const doneTasks = linkedTasks.filter((tk) => tk.status === "done").length;
   const priorityColor =
     PRIORITY_COLORS[Math.min(item.priority - 1, PRIORITY_COLORS.length - 1)] ??
     PRIORITY_COLORS[PRIORITY_COLORS.length - 1];
@@ -68,7 +74,9 @@ function ItemCard({ item, tasks }: { item: BacklogItem; tasks: Task[] }) {
           )}
           {item.acceptanceCriteria.length > 0 && (
             <div>
-              <div className="text-xs text-gray-500 mb-1">验收标准:</div>
+              <div className="text-xs text-gray-500 mb-1">
+                {t("backlog.acceptance")}
+              </div>
               <ul className="space-y-0.5">
                 {item.acceptanceCriteria.map((c, i) => (
                   <li key={i} className="text-xs text-gray-400 flex gap-1">
@@ -92,6 +100,7 @@ export default function BacklogBoard({
   backlog: BacklogItem[];
   tasks: Task[];
 }) {
+  const { t } = useI18n();
   return (
     <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
       <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -105,7 +114,7 @@ export default function BacklogBoard({
           return (
             <div key={col.key}>
               <div className={`text-xs font-medium mb-2 ${col.color}`}>
-                {col.label}{" "}
+                {t(col.labelKey)}{" "}
                 <span className="text-gray-600">({items.length})</span>
               </div>
               <div className="space-y-2">
@@ -114,7 +123,7 @@ export default function BacklogBoard({
                 ))}
                 {items.length === 0 && (
                   <div className="text-xs text-gray-700 text-center py-4 border border-dashed border-gray-800 rounded-lg">
-                    暂无
+                    {t("backlog.empty")}
                   </div>
                 )}
               </div>

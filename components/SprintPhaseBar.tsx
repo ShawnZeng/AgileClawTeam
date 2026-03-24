@@ -1,16 +1,18 @@
 "use client";
 
 import type { Sprint } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
-const PHASES: { key: Sprint["status"]; label: string; color: string }[] = [
-  { key: "planning", label: "计划", color: "bg-purple-500" },
-  { key: "execution", label: "执行", color: "bg-blue-500" },
-  { key: "review", label: "评审", color: "bg-yellow-500" },
-  { key: "retrospective", label: "回顾", color: "bg-orange-500" },
-  { key: "done", label: "完成", color: "bg-green-500" },
+const PHASES: { key: Sprint["status"]; labelKey: string; color: string }[] = [
+  { key: "planning", labelKey: "phase.planning", color: "bg-purple-500" },
+  { key: "execution", labelKey: "phase.executing", color: "bg-blue-500" },
+  { key: "review", labelKey: "phase.reviewing", color: "bg-yellow-500" },
+  { key: "retrospective", labelKey: "phase.retrospective", color: "bg-orange-500" },
+  { key: "done", labelKey: "phase.complete", color: "bg-green-500" },
 ];
 
 export default function SprintPhaseBar({ sprint }: { sprint: Sprint | null }) {
+  const { t } = useI18n();
   const currentIdx = sprint?.status
     ? PHASES.findIndex((p) => p.key === sprint.status)
     : -1;
@@ -66,7 +68,7 @@ export default function SprintPhaseBar({ sprint }: { sprint: Sprint | null }) {
                   isCurrent ? "text-white font-semibold" : "text-gray-600"
                 }`}
               >
-                {phase.label}
+                {t(phase.labelKey)}
               </span>
             </div>
           );

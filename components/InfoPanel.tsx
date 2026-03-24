@@ -6,15 +6,16 @@ import { useDisplayNames } from "@/lib/useDisplayNames";
 import { formatAgentLabel } from "@/lib/agentDisplay";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { ArtifactList } from "@/components/ArtifactList";
+import { useI18n } from "@/lib/i18n";
 
 // ── Sprint block ──────────────────────────────────────────────────────────────
 
-const PHASE_LABELS: Record<string, string> = {
-  planning: "计划中",
-  execution: "执行中",
-  review: "评审中",
-  retrospective: "回顾中",
-  done: "已完成",
+const PHASE_LABEL_KEY: Record<string, string> = {
+  planning: "phase.inPlanning",
+  execution: "phase.inExecuting",
+  review: "phase.inReviewing",
+  retrospective: "phase.inRetrospective",
+  done: "phase.completed",
 };
 const PHASE_COLORS: Record<string, string> = {
   planning: "bg-purple-800 text-purple-300",
@@ -25,14 +26,17 @@ const PHASE_COLORS: Record<string, string> = {
 };
 
 function SprintBlock({ sprint }: { sprint: Sprint | null }) {
+  const { t } = useI18n();
   if (!sprint?.id) {
     return (
       <div className="text-xs text-gray-600 text-center py-3 border border-dashed border-gray-800 rounded-lg">
-        暂无进行中的 Sprint
+        {t("board.noSprint")}
       </div>
     );
   }
-  const phaseLabel = PHASE_LABELS[sprint.status ?? ""] ?? sprint.status;
+  const phaseLabel = t(
+    PHASE_LABEL_KEY[sprint.status ?? ""] ?? sprint.status ?? "",
+  );
   const phaseColor =
     PHASE_COLORS[sprint.status ?? ""] ?? "bg-gray-800 text-gray-400";
   return (
@@ -53,7 +57,9 @@ function SprintBlock({ sprint }: { sprint: Sprint | null }) {
         </p>
       )}
       <div className="text-xs text-gray-600 mt-1">
-        已承诺 {sprint.committedItemIds?.length ?? 0} 个需求
+        {t("board.sprintCommits", {
+          n: String(sprint.committedItemIds?.length ?? 0),
+        })}
       </div>
     </div>
   );
@@ -68,10 +74,10 @@ const PRIORITY_COLOR = [
   "bg-gray-800 text-gray-400 border-gray-700",
 ];
 
-const STATUS_LABEL: Record<BacklogItem["status"], string> = {
-  pending: "待开始",
-  "in-progress": "进行中",
-  done: "已完成",
+const STATUS_LABEL_KEYS: Record<BacklogItem["status"], string> = {
+  pending: "status.notStarted",
+  "in-progress": "status.inProgress",
+  done: "status.done",
 };
 const STATUS_COLOR: Record<BacklogItem["status"], string> = {
   pending: "text-gray-500",
@@ -101,8 +107,9 @@ function BacklogCard({
   loading,
 }: BacklogCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const linkedTasks = tasks.filter((t) => item.taskIds.includes(t.id));
-  const doneTasks = linkedTasks.filter((t) => t.status === "done").length;
+  const { t } = useI18n();
+  const linkedTasks = tasks.filter((tk) => item.taskIds.includes(tk.id));
+  const doneTasks = linkedTasks.filter((tk) => tk.status === "done").length;
   const priorityColorClass =
     PRIORITY_COLOR[Math.min(item.priority - 1, PRIORITY_COLOR.length - 1)] ??
     PRIORITY_COLOR[PRIORITY_COLOR.length - 1];
@@ -127,11 +134,14 @@ function BacklogCard({
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`text-xs ${STATUS_COLOR[item.status]}`}>
-                {STATUS_LABEL[item.status]}
+                {t(STATUS_LABEL_KEYS[item.status])}
               </span>
               {linkedTasks.length > 0 && (
                 <span className="text-xs text-gray-600">
-                  {doneTasks}/{linkedTasks.length} 任务
+                  {t("info.taskCount", {
+                    done: doneTasks,
+                    total: linkedTasks.length,
+                  })}
                 </span>
               )}
             </div>
@@ -149,10 +159,10 @@ function BacklogCard({
           disabled={inSprint || loading}
           className="text-xs px-2 py-1 rounded bg-blue-800/60 text-blue-300 hover:bg-blue-700/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {inSprint ? "已在 Sprint" : "移入 Sprint"}
+          {inSprint ? t("info.inSprint") : t("info.moveToSprint")}
         </button>
         <div className="flex items-center gap-1 ml-auto">
-          <span className="text-xs text-gray-600">优先级</span>
+          <span className="text-xs text-gray-600">{t("info.priority")}</span>
           <button
             onClick={() => onPriorityChange(-1)}
             disabled={item.priority <= 1 || loading}
@@ -181,7 +191,9 @@ function BacklogCard({
           )}
           {item.acceptanceCriteria.length > 0 && (
             <div>
-              <div className="text-xs text-gray-600 mb-1">验收标准</div>
+              <div className="text-xs text-gray-600 mb-1">
+                {t("info.acceptance")}
+              </div>
               <ul className="space-y-0.5">
                 {item.acceptanceCriteria.map((c, i) => (
                   <li key={i} className="text-xs text-gray-400 flex gap-1.5">
@@ -194,7 +206,9 @@ function BacklogCard({
           )}
           {linkedTasks.length > 0 && (
             <div>
-              <div className="text-xs text-gray-600 mb-1">关联任务</div>
+              <div className="text-xs text-gray-600 mb-1">
+                {t("info.linkedTasks")}
+              </div>
               {linkedTasks.map((t) => (
                 <div
                   key={t.id}
@@ -226,18 +240,21 @@ function BacklogCard({
               ))}
             </div>
           )}
-          {item.status === "done" && (() => {
-            const allArtifacts = linkedTasks.flatMap((t) => t.artifacts ?? []);
-            if (allArtifacts.length === 0) return null;
-            return (
-              <div className="pt-2 border-t border-emerald-900/30">
-                <div className="text-xs text-emerald-700 mb-1.5 font-medium">
-                  🏆 成果物（{allArtifacts.length} 项）
+          {item.status === "done" &&
+            (() => {
+              const allArtifacts = linkedTasks.flatMap(
+                (t) => t.artifacts ?? [],
+              );
+              if (allArtifacts.length === 0) return null;
+              return (
+                <div className="pt-2 border-t border-emerald-900/30">
+                  <div className="text-xs text-emerald-700 mb-1.5 font-medium">
+                    {t("info.artifacts", { n: allArtifacts.length })}
+                  </div>
+                  <ArtifactList artifacts={allArtifacts} />
                 </div>
-                <ArtifactList artifacts={allArtifacts} />
-              </div>
-            );
-          })()}
+              );
+            })()}
         </div>
       )}
     </div>
@@ -268,7 +285,7 @@ function AgentBlock({
         <div
           key={a.id}
           className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5"
-          title={a.currentTaskId ? `任务: ${a.currentTaskId}` : a.status}
+          title={a.currentTaskId ? `Task: ${a.currentTaskId}` : a.status}
         >
           <AgentAvatar agentId={a.id} role={a.role} size={18} />
           <span className="text-xs text-gray-300">
@@ -302,6 +319,7 @@ export default function InfoPanel({
 }: InfoPanelProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const displayNames = useDisplayNames();
+  const { t } = useI18n();
 
   const handleMoveToSprint = async (itemId: string) => {
     setLoadingId(itemId);
@@ -342,7 +360,7 @@ export default function InfoPanel({
       {/* Backlog */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-0.5 shrink-0">
-          待办事项列表
+          {t("info.backlogLabel")}
           <span className="ml-1 text-gray-700 font-normal">
             ({backlog.length})
           </span>
@@ -350,7 +368,7 @@ export default function InfoPanel({
         <div className="flex-1 overflow-y-auto space-y-2 pr-1">
           {sortedBacklog.length === 0 ? (
             <div className="text-xs text-gray-700 text-center py-6 border border-dashed border-gray-800 rounded-lg">
-              暂无待办事项，与 PO 对话来创建
+              {t("info.backlogEmpty")}
             </div>
           ) : (
             sortedBacklog.map((item) => (
@@ -375,7 +393,7 @@ export default function InfoPanel({
       {/* Sprint */}
       <div className="shrink-0">
         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-0.5">
-          Sprint 状态
+          {t("info.sprintStatus")}
         </div>
         <SprintBlock sprint={sprint} />
       </div>
@@ -384,7 +402,7 @@ export default function InfoPanel({
       {agents.length > 0 && (
         <div className="shrink-0">
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-0.5">
-            Agent 状态
+            {t("info.agentStatus")}
           </div>
           <AgentBlock agents={agents} displayNames={displayNames} />
         </div>

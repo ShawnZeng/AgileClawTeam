@@ -157,19 +157,29 @@ function mergeBindings(
 
 /**
  * Create ~/.openclaw/workspace-{id} and copy workspace files from the project.
+ * When lang="en", files from the `en/` subdirectory override the base files.
  * Returns the absolute destination path.
  */
-function prepareWorkspace(agentId: string): string {
+function prepareWorkspace(agentId: string, lang: "zh" | "en" = "zh"): string {
   const dest = path.join(INSTALL_DIR, `workspace-${agentId}`);
   const src = path.join(OPENCLAW_DIR, "workspaces", agentId);
+  const srcLang = path.join(src, lang);
 
   try {
     fs.mkdirSync(dest, { recursive: true });
-    // Copy all .md files from the project workspace, overwriting any existing files.
     if (fs.existsSync(src)) {
+      // Copy base .md files first (language-neutral fallback)
       for (const file of fs.readdirSync(src)) {
         if (file.endsWith(".md")) {
           fs.copyFileSync(path.join(src, file), path.join(dest, file));
+        }
+      }
+      // If a language-specific subfolder exists, override with those files
+      if (lang !== "zh" && fs.existsSync(srcLang)) {
+        for (const file of fs.readdirSync(srcLang)) {
+          if (file.endsWith(".md")) {
+            fs.copyFileSync(path.join(srcLang, file), path.join(dest, file));
+          }
         }
       }
     }
@@ -424,12 +434,20 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // ─── POST /api/openclaw-setup ────────────────────────────────────────────────
-export async function POST(): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
   const fail = (message: string, details?: string): NextResponse =>
     NextResponse.json(
       { success: false, message, details } as SetupApplyResult,
       { status: 400 },
     );
+
+  let lang: "zh" | "en" = "zh";
+  try {
+    const body = (await request.json()) as { lang?: string };
+    if (body.lang === "en") lang = "en";
+  } catch {
+    // no body or non-JSON — use default
+  }
 
   const client = getGatewayClient();
   if (!client.getStatus().connected) {
@@ -462,7 +480,7 @@ export async function POST(): Promise<NextResponse> {
     (id) => !existingIds.includes(id),
   ).map((id) => ({
     id,
-    workspace: prepareWorkspace(id),
+    workspace: prepareWorkspace(id, lang),
     model:
       defaultModel ?? projectModels.get(id) ?? "anthropic/claude-sonnet-4-6",
     identity: AGENT_IDENTITY[id],
@@ -539,12 +557,20 @@ export async function POST(): Promise<NextResponse> {
 }
 
 // ─── PUT /api/openclaw-setup  (reinstall: remove then re-register) ────────────
-export async function PUT(): Promise<NextResponse> {
+export async function PUT(request: Request): Promise<NextResponse> {
   const fail = (message: string, details?: string): NextResponse =>
     NextResponse.json(
       { success: false, message, details } as SetupApplyResult,
       { status: 400 },
     );
+
+  let lang: "zh" | "en" = "zh";
+  try {
+    const body = (await request.json()) as { lang?: string };
+    if (body.lang === "en") lang = "en";
+  } catch {
+    // no body or non-JSON — use default
+  }
 
   const client = getGatewayClient();
   if (!client.getStatus().connected) {
@@ -577,7 +603,7 @@ export async function PUT(): Promise<NextResponse> {
 
   const freshAgents: AgentDef[] = REQUIRED_AGENTS.map((id) => ({
     id,
-    workspace: prepareWorkspace(id),
+    workspace: prepareWorkspace(id, lang),
     model:
       defaultModel ?? projectModels.get(id) ?? "anthropic/claude-sonnet-4-6",
     identity: AGENT_IDENTITY[id],

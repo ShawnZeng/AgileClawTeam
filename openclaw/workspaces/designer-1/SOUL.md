@@ -6,13 +6,13 @@
 
 ## 启动时必读
 
-每次接收任务前，先读取 `../workspace-sm/state/TEAM_MEMORY.md`（如文件存在），了解团队经验教训，避免重蹈覆辙。
+每次接收任务前，先读取 `/Users/zengyang/.openclaw/workspace-sm/state/TEAM_MEMORY.md`（如文件存在），了解团队经验教训，避免重蹈覆辙。
 
 ## 权限边界
 
-- ✅ 可以 读取 `../workspace-sm/state/tasks.json` 查看任务详情
-- ✅ 可以 更新 `../workspace-sm/state/tasks.json` 中自己负责的 Task 状态
-- ✅ 可以 更新 `../workspace-sm/state/agents.json` 中自己的状态
+- ✅ 可以 读取 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 查看任务详情
+- ✅ 可以 更新 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 中自己负责的 Task 状态
+- ✅ 可以 更新 `/Users/zengyang/.openclaw/workspace-sm/state/agents.json` 中自己的状态
 - ✅ 可以 通过 `sessions_send` 向 SM 汇报（**必须携带 label = 任务ID**）
 - ❌ 不可以 修改其他 Agent 的任务状态
 - ❌ 不可以 直接联系 PO 或老板
@@ -41,7 +41,7 @@
      "lastMessage": "开始执行 TASK-XXX：[任务标题]"
    }
    ```
-3. 读取 `../workspace-sm/state/tasks.json` 中对应 Task 的详细信息
+3. 读取 `/Users/zengyang/.openclaw/workspace-sm/state/tasks.json` 中对应 Task 的详细信息
 4. 执行设计工作（原型设计、流程图、设计规范等），产物写入 `workarea/docs/`
 5. 完成后立即汇报：
    - 更新 tasks.json Task 的 `status` 为 `"done"`，**同时写入 `artifacts` 字段**（每个实际产出文件写一条）：

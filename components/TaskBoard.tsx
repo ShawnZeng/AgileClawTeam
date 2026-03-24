@@ -2,15 +2,24 @@
 
 import type { Task, AgentState } from "@/lib/types";
 import { useDisplayNames } from "@/lib/useDisplayNames";
+import { useI18n } from "@/lib/i18n";
 
-const STATUS_CONFIG: Record<Task["status"], { label: string; color: string }> =
-  {
-    pending: { label: "待处理", color: "bg-gray-700 text-gray-300" },
-    "in-progress": { label: "进行中", color: "bg-blue-900 text-blue-300" },
-    working: { label: "进行中", color: "bg-blue-900 text-blue-300" },
-    done: { label: "完成", color: "bg-green-900 text-green-300" },
-    blocked: { label: "阻塞", color: "bg-red-900 text-red-300" },
-  };
+const STATUS_CONFIG: Record<
+  Task["status"],
+  { labelKey: string; color: string }
+> = {
+  pending: { labelKey: "status.pending", color: "bg-gray-700 text-gray-300" },
+  "in-progress": {
+    labelKey: "status.inProgress",
+    color: "bg-blue-900 text-blue-300",
+  },
+  working: {
+    labelKey: "status.inProgress",
+    color: "bg-blue-900 text-blue-300",
+  },
+  done: { labelKey: "status.doneShort", color: "bg-green-900 text-green-300" },
+  blocked: { labelKey: "status.blocked", color: "bg-red-900 text-red-300" },
+};
 
 const TYPE_ICON: Record<Task["type"], string> = {
   development: "💻",
@@ -30,6 +39,7 @@ function TaskRow({
   agents: AgentState[];
   displayNames: Record<string, string>;
 }) {
+  const { t } = useI18n();
   const cfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.pending;
   const assignee = agents.find((a) => a.id === task.assigneeId);
   const depTasks = task.dependencies
@@ -56,7 +66,7 @@ function TaskRow({
             </span>
           )}
           <span className={`text-xs px-1.5 py-0.5 rounded-full ${cfg.color}`}>
-            {cfg.label}
+            {t(cfg.labelKey)}
           </span>
         </div>
       </div>
@@ -78,7 +88,9 @@ function TaskRow({
             );
           })}
           {depsBlocking && (
-            <span className="text-xs text-yellow-500 ml-1">⚠ 依赖未完成</span>
+            <span className="text-xs text-yellow-500 ml-1">
+              {t("task.depsUnmet")}
+            </span>
           )}
         </div>
       )}
@@ -102,6 +114,7 @@ export default function TaskBoard({
   agents: AgentState[];
 }) {
   const displayNames = useDisplayNames();
+  const { t } = useI18n();
   const byStatus: Record<Task["status"], Task[]> = {
     pending: [],
     "in-progress": [],
@@ -129,7 +142,7 @@ export default function TaskBoard({
               <div
                 className={`text-xs font-medium mb-2 ${cfg.color.replace("bg-", "text-").replace("-900", "-400")}`}
               >
-                {cfg.label} ({statusTasks.length})
+                {t(cfg.labelKey)} ({statusTasks.length})
               </div>
               <div className="space-y-2">
                 {statusTasks.map((task) => (
@@ -143,7 +156,7 @@ export default function TaskBoard({
                 ))}
                 {statusTasks.length === 0 && (
                   <div className="text-xs text-gray-700 text-center py-4 border border-dashed border-gray-800 rounded-lg">
-                    暂无
+                    {t("task.empty")}
                   </div>
                 )}
               </div>

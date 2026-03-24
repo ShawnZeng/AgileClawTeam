@@ -6,6 +6,7 @@ import type { SessionInfo } from "@/lib/openclaw-session";
 import { useDisplayNames } from "@/lib/useDisplayNames";
 import { formatAgentLabel } from "@/lib/agentDisplay";
 import { AgentAvatar } from "@/components/AgentAvatar";
+import { useI18n } from "@/lib/i18n";
 
 const ROLE_BUBBLE: Record<string, string> = {
   user: "bg-blue-900 text-blue-100 ml-auto",
@@ -13,12 +14,12 @@ const ROLE_BUBBLE: Record<string, string> = {
   system: "bg-gray-800 text-gray-500 border border-gray-700",
 };
 
-const TASK_STATUS_LABEL: Record<string, string> = {
-  pending: "待开始",
-  "in-progress": "进行中",
-  done: "已完成",
-  blocked: "阻塞",
-  working: "工作中",
+const TASK_STATUS_LABEL_KEY: Record<string, string> = {
+  pending: "status.notStarted",
+  "in-progress": "status.inProgress",
+  done: "status.done",
+  blocked: "status.blocked",
+  working: "status.working",
 };
 
 const ALL_AGENT_IDS = [
@@ -48,6 +49,8 @@ interface MessagesResponse {
 // ── Task info panel (shown for team agents) ────────────────────────────────────
 
 function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
+  const { t, lang } = useI18n();
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
   if (!agent && !task) return null;
 
   return (
@@ -56,7 +59,7 @@ function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
       {agent && (
         <div className="bg-gray-800/60 rounded-lg p-3 space-y-1.5">
           <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-            Agent 状态
+            {t("conv.agentStatus")}
           </div>
           {agent.lastMessage && (
             <div className="text-xs text-gray-300 leading-relaxed">
@@ -65,8 +68,8 @@ function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
           )}
           {agent.lastActivity && (
             <div className="text-[10px] text-gray-600">
-              🕐 最后活动：
-              {new Date(agent.lastActivity).toLocaleString("zh-CN", {
+              {t("conv.lastActivity")}
+              {new Date(agent.lastActivity).toLocaleString(locale, {
                 month: "2-digit",
                 day: "2-digit",
                 hour: "2-digit",
@@ -77,7 +80,7 @@ function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
           )}
           {agent.talkingTo && (
             <div className="text-[10px] text-blue-500">
-              ↔ 正在与 {agent.talkingTo} 通讯
+              {t("conv.talkingWith", { agent: agent.talkingTo })}
             </div>
           )}
         </div>
@@ -91,7 +94,7 @@ function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
               {task.id}
             </span>
             <span className="text-[10px] text-gray-600 bg-gray-800 rounded px-1.5 py-0.5">
-              {TASK_STATUS_LABEL[task.status] ?? task.status}
+              {t(TASK_STATUS_LABEL_KEY[task.status] ?? task.status)}
             </span>
             <span className="text-[10px] text-gray-600 bg-gray-800 rounded px-1.5 py-0.5">
               {task.type}
@@ -107,7 +110,7 @@ function TaskInfoPanel({ agent, task }: { agent?: AgentState; task?: Task }) {
           )}
           {task.dependencies.length > 0 && (
             <div className="text-[10px] text-gray-600">
-              依存：{task.dependencies.join(", ")}
+              {t("conv.dependencies", { ids: task.dependencies.join(", ") })}
             </div>
           )}
           {task.blockerDescription && (
@@ -145,6 +148,8 @@ export default function ConversationViewer({
   const [fallback, setFallback] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { t, lang } = useI18n();
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
 
   // When initialAgentId/initialSessionKey props change (e.g. from task button), sync
   useEffect(() => {
@@ -261,7 +266,9 @@ export default function ConversationViewer({
         {/* Session selector */}
         {sessions.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-600 shrink-0">会话</span>
+            <span className="text-[11px] text-gray-600 shrink-0">
+              {t("conv.session")}
+            </span>
             <select
               value={selectedSessionKey ?? ""}
               onChange={(e) => setSelectedSessionKey(e.target.value || null)}
@@ -270,7 +277,7 @@ export default function ConversationViewer({
               {sessions.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.taskId ? "📌 " : ""}
-                  {s.label} ({s.msgCount} 条)
+                  {s.label} {t("conv.msgCount", { n: String(s.msgCount) })}
                 </option>
               ))}
             </select>
@@ -281,31 +288,29 @@ export default function ConversationViewer({
         {fallback && (
           <div className="text-[10px] text-amber-600 bg-amber-950/40 border border-amber-800/30 rounded px-2 py-1.5 leading-relaxed">
             ⚠️{" "}
-            {formatAgentLabel(
-              selectedAgentId,
-              agent?.role ?? selectedAgentId,
-              displayNames,
-            )}{" "}
-            暂无专属会话 — 下方显示 SM 巡检记录（含任务派发详情）
+            {t("conv.noOwnSession", {
+              agent: formatAgentLabel(
+                selectedAgentId,
+                agent?.role ?? selectedAgentId,
+                displayNames,
+              ),
+            })}
           </div>
         )}
 
         {/* Task filter hint */}
         {!fallback && initialTaskId && (
           <div className="text-[10px] text-blue-700 bg-blue-950/40 rounded px-2 py-1">
-            🔍 关联任务 {initialTaskId}
+            {t("conv.taskFilter", { id: initialTaskId })}
             {sessions.some((s) => s.taskId === initialTaskId)
-              ? " — 已找到专属会话"
-              : " — 暂无专属会话（下次 Sprint 将自动创建）"}
+              ? t("conv.foundSession")
+              : t("conv.noSession")}
           </div>
         )}
       </div>
 
       {/* Messages area */}
-      <div
-        ref={scrollAreaRef}
-        className="flex-1 overflow-y-auto min-h-0 pr-1"
-      >
+      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto min-h-0 pr-1">
         {/* Task info panel — always shown for team agents */}
         {isTeamAgent && (agent?.currentTaskId || agent?.lastMessage) && (
           <TaskInfoPanel agent={agent} task={currentTask} />
@@ -316,10 +321,16 @@ export default function ConversationViewer({
           {messages.length === 0 ? (
             <div className="text-xs text-gray-700 text-center py-4">
               {sessions.length === 0
-                ? `${formatAgentLabel(selectedAgentId, agent?.role ?? selectedAgentId, displayNames)} 暂无对话记录`
+                ? t("conv.noHistory", {
+                    agent: formatAgentLabel(
+                      selectedAgentId,
+                      agent?.role ?? selectedAgentId,
+                      displayNames,
+                    ),
+                  })
                 : currentSession
-                  ? `${currentSession.label} 暂无消息`
-                  : "请选择会话"}
+                  ? t("conv.sessionEmpty", { session: currentSession.label })
+                  : t("conv.selectSession")}
             </div>
           ) : (
             messages.map((msg, i) => (
@@ -331,7 +342,7 @@ export default function ConversationViewer({
               >
                 <div className="flex items-center gap-1 text-[10px] text-gray-600">
                   {msg.role === "user" ? (
-                    <span>{fallback ? "用户/PO" : "你"}</span>
+                    <span>{fallback ? t("conv.userPo") : t("conv.you")}</span>
                   ) : (
                     <>
                       <AgentAvatar
@@ -351,7 +362,7 @@ export default function ConversationViewer({
                     </>
                   )}
                   <span>
-                    {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
+                    {new Date(msg.timestamp).toLocaleTimeString(locale, {
                       hour: "2-digit",
                       minute: "2-digit",
                       second: "2-digit",

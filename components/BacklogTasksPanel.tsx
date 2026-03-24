@@ -11,21 +11,22 @@ import type {
 import { useDisplayNames } from "@/lib/useDisplayNames";
 import { ROLE_ABBR } from "@/lib/agentDisplay";
 import { ArtifactList } from "@/components/ArtifactList";
+import { useI18n } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 type TaskHistoryEntry = { status: string; timestamp: string };
 type TaskHistoryMap = Record<string, TaskHistoryEntry[]>;
 
-const HISTORY_STATUS_LABEL: Record<string, string> = {
-  pending: "创建",
-  "in-progress": "进行",
-  done: "✓完成",
-  blocked: "阻塞",
+const HISTORY_STATUS_LABEL_KEY: Record<string, string> = {
+  pending: "status.created",
+  "in-progress": "status.active",
+  done: "status.completed",
+  blocked: "status.blocked",
 };
 
-function fmtHistoryTs(iso: string): string {
-  return new Date(iso).toLocaleString("zh-CN", {
+function fmtHistoryTs(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -41,12 +42,12 @@ const SPRINT_STATUS_BADGE: Record<string, string> = {
   retrospective: "bg-orange-800/60 text-orange-300",
   done: "bg-green-800/60 text-green-300",
 };
-const SPRINT_STATUS_LABEL: Record<string, string> = {
-  planning: "计划中",
-  execution: "执行中",
-  review: "评审中",
-  retrospective: "回顾中",
-  done: "已完成",
+const SPRINT_STATUS_LABEL_KEY: Record<string, string> = {
+  planning: "phase.inPlanning",
+  execution: "phase.inExecuting",
+  review: "phase.inReviewing",
+  retrospective: "phase.inRetrospective",
+  done: "phase.completed",
 };
 
 const TASK_TYPE_ICON: Record<Task["type"], string> = {
@@ -64,12 +65,12 @@ const TASK_STATUS_BADGE: Record<Task["status"], string> = {
   done: "bg-green-800/60 text-green-300",
   blocked: "bg-red-800/60 text-red-300",
 };
-const TASK_STATUS_LABEL: Record<Task["status"], string> = {
-  pending: "待开始",
-  "in-progress": "进行中",
-  working: "进行中",
-  done: "完成",
-  blocked: "阻塞",
+const TASK_STATUS_LABEL_KEY: Record<Task["status"], string> = {
+  pending: "status.notStarted",
+  "in-progress": "status.inProgress",
+  working: "status.inProgress",
+  done: "status.doneShort",
+  blocked: "status.blocked",
 };
 
 const ITEM_PRIORITY_COLORS = [
@@ -99,6 +100,8 @@ function TaskRow({
   displayNames: Record<string, string>;
 }) {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
+  const { t, lang } = useI18n();
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
 
   const assignee = agents.find((a) => a.id === task.assigneeId);
   const deps = task.dependencies
@@ -109,7 +112,7 @@ function TaskRow({
     task.status === "pending" && blockedByDep ? "waiting" : task.status;
   const statusBadge =
     TASK_STATUS_BADGE[task.status] ?? "bg-gray-800 text-gray-500";
-  const statusLabel = TASK_STATUS_LABEL[task.status] ?? task.status;
+  const statusLabel = t(TASK_STATUS_LABEL_KEY[task.status] ?? task.status);
   const artifactCount = task.artifacts?.length ?? 0;
 
   return (
@@ -144,12 +147,14 @@ function TaskRow({
               </span>
             </div>
           ) : (
-            <span className="text-[10px] text-gray-700 shrink-0">未分配</span>
+            <span className="text-[10px] text-gray-700 shrink-0">
+              {t("btp.notAssigned")}
+            </span>
           )}
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${statusBadge}`}
           >
-            {effectiveStatus === "waiting" ? "等待依赖" : statusLabel}
+            {effectiveStatus === "waiting" ? t("btp.waitingDeps") : statusLabel}
           </span>
           {/* Artifacts toggle badge */}
           {task.status === "done" && artifactCount > 0 && (
@@ -163,7 +168,11 @@ function TaskRow({
                   ? "bg-emerald-900/60 text-emerald-300 border-emerald-800/60"
                   : "bg-gray-800/60 text-gray-500 border-gray-700/50 hover:text-emerald-400 hover:border-emerald-800/40"
               }`}
-              title={artifactsOpen ? "收起成果物" : "展开成果物"}
+              title={
+                artifactsOpen
+                  ? t("btp.collapseArtifacts")
+                  : t("btp.expandArtifacts")
+              }
             >
               📦 {artifactCount}
             </button>
@@ -175,7 +184,7 @@ function TaskRow({
                 onViewWorkLog(task.assigneeId ?? "sm", task.id);
               }}
               className="text-[10px] text-gray-700 hover:text-blue-400 shrink-0 transition-colors"
-              title="查看工作记录"
+              title={t("btp.viewWorkLog")}
             >
               💬
             </button>
@@ -184,11 +193,12 @@ function TaskRow({
 
         {deps.length > 0 && blockedByDep && (
           <div className="text-[10px] text-yellow-700 mt-0.5 pl-5">
-            ↳ 等待:{" "}
-            {deps
-              .filter((d) => d.status !== "done")
-              .map((d) => d.id)
-              .join(", ")}
+            {t("btp.waitingFor", {
+              ids: deps
+                .filter((d) => d.status !== "done")
+                .map((d) => d.id)
+                .join(", "),
+            })}
           </div>
         )}
         {task.status === "blocked" && task.blockerDescription && (
@@ -212,9 +222,12 @@ function TaskRow({
                         : ""
                   }
                 >
-                  {HISTORY_STATUS_LABEL[e.status] ?? e.status}
+                  {" "}
+                  {HISTORY_STATUS_LABEL_KEY[e.status]
+                    ? t(HISTORY_STATUS_LABEL_KEY[e.status])
+                    : e.status}
                 </span>
-                <span>{fmtHistoryTs(e.timestamp)}</span>
+                <span>{fmtHistoryTs(e.timestamp, locale)}</span>
               </span>
             ))}
           </div>
@@ -260,8 +273,9 @@ function BacklogItemRow({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? true);
   const [artifactsOpen, setArtifactsOpen] = useState(false);
-  const itemTasks = tasks.filter((t) => t.itemId === item.id);
-  const doneTasks = itemTasks.filter((t) => t.status === "done").length;
+  const { t } = useI18n();
+  const itemTasks = tasks.filter((task) => task.itemId === item.id);
+  const doneTasks = itemTasks.filter((task) => task.status === "done").length;
   const priorIdx = Math.min(item.priority - 1, ITEM_PRIORITY_COLORS.length - 1);
   const priorColor =
     ITEM_PRIORITY_COLORS[priorIdx] ??
@@ -279,17 +293,17 @@ function BacklogItemRow({
         : "text-gray-500";
   const statusLabel =
     displayStatus === "done"
-      ? "完成"
+      ? t("status.doneShort")
       : displayStatus === "in-progress"
-        ? "进行中"
-        : "待办";
+        ? t("status.inProgress")
+        : t("status.todo");
 
   // Collect all artifacts for this item
   const allArtifacts =
     displayStatus === "done"
       ? (item.artifacts?.length ?? 0) > 0
         ? (item.artifacts ?? [])
-        : itemTasks.flatMap((t) => t.artifacts ?? [])
+        : itemTasks.flatMap((task) => task.artifacts ?? [])
       : [];
 
   return (
@@ -312,7 +326,10 @@ function BacklogItemRow({
         </span>
         {itemTasks.length > 0 && (
           <span className="text-[10px] text-gray-600 shrink-0">
-            {doneTasks}/{itemTasks.length} 任务
+            {t("btp.itemTaskCount", {
+              done: String(doneTasks),
+              total: String(itemTasks.length),
+            })}
           </span>
         )}
         <span className={`text-[10px] shrink-0 ${statusColor}`}>
@@ -330,7 +347,11 @@ function BacklogItemRow({
                 ? "bg-emerald-900/60 text-emerald-300 border-emerald-800/60"
                 : "bg-gray-800/60 text-gray-500 border-gray-700/50 hover:text-emerald-400 hover:border-emerald-800/40"
             }`}
-            title={artifactsOpen ? "收起成果物汇总" : "展开成果物汇总"}
+            title={
+              artifactsOpen
+                ? t("btp.collapseItemArtifacts")
+                : t("btp.expandItemArtifacts")
+            }
           >
             🏆 {allArtifacts.length}
           </button>
@@ -368,14 +389,14 @@ function BacklogItemRow({
           disabled={inSprint || loading}
           className="text-[10px] px-2 py-0.5 rounded bg-blue-900/50 text-blue-400 hover:bg-blue-800/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          {inSprint ? "已在 Sprint" : "移入 Sprint"}
+          {inSprint ? t("btp.inSprint") : t("btp.moveToSprint")}
         </button>
         <div className="flex items-center gap-1 ml-auto">
           <button
             onClick={() => onPriorityChange(item.id, -1)}
             disabled={item.priority <= 1 || loading}
             className="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 text-[10px] flex items-center justify-center disabled:opacity-30 transition-colors"
-            title="提高优先级"
+            title={t("btp.raisePriority")}
           >
             ↑
           </button>
@@ -383,7 +404,7 @@ function BacklogItemRow({
             onClick={() => onPriorityChange(item.id, 1)}
             disabled={item.priority >= 10 || loading}
             className="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 text-[10px] flex items-center justify-center disabled:opacity-30 transition-colors"
-            title="降低优先级"
+            title={t("btp.lowerPriority")}
           >
             ↓
           </button>
@@ -424,10 +445,11 @@ function SprintSection({
 }) {
   const isDone = sprint.status === "done";
   const [sectionExpanded, setSectionExpanded] = useState(!isDone);
+  const { t, lang } = useI18n();
 
   const badge =
     SPRINT_STATUS_BADGE[sprint.status] ?? "bg-gray-800 text-gray-400";
-  const label = SPRINT_STATUS_LABEL[sprint.status] ?? sprint.status;
+  const label = t(SPRINT_STATUS_LABEL_KEY[sprint.status] ?? sprint.status);
 
   const committedItems = sprint.committedItemIds
     .map((id) => backlog.find((b) => b.id === id))
@@ -468,12 +490,19 @@ function SprintSection({
         )}
         {sprintTasks.length > 0 && (
           <span className="text-[10px] text-gray-600 shrink-0">
-            {doneTasks}/{sprintTasks.length} 任务完成
+            {t("btp.tasksDoneFraction", {
+              done: String(doneTasks),
+              total: String(sprintTasks.length),
+            })}
           </span>
         )}
         {sprint.startedAt && (
           <span className="text-[10px] text-gray-700 shrink-0">
-            {new Date(sprint.startedAt).toLocaleDateString("zh-CN")} 起
+            {t("btp.startDate", {
+              date: new Date(sprint.startedAt).toLocaleDateString(
+                lang === "zh" ? "zh-CN" : "en-US",
+              ),
+            })}
           </span>
         )}
       </div>
@@ -482,7 +511,7 @@ function SprintSection({
         <div className="p-3 space-y-2 bg-gray-900/20">
           {committedItems.length === 0 ? (
             <div className="text-[11px] text-gray-700 px-2 py-1">
-              暂无关联事项
+              {t("btp.noItems")}
             </div>
           ) : (
             committedItems.map((item) => (
@@ -525,6 +554,7 @@ function PatrolSessionRow({ session }: { session: PatrolSession }) {
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const { t, lang } = useI18n();
 
   const toggle = async () => {
     if (!expanded && messages.length === 0) {
@@ -560,9 +590,13 @@ function PatrolSessionRow({ session }: { session: PatrolSession }) {
       {expanded && (
         <div className="border-t border-gray-800/60 bg-gray-900/40 px-3 py-2 max-h-64 overflow-y-auto space-y-2">
           {loading ? (
-            <div className="text-[10px] text-gray-600 py-1">加载中...</div>
+            <div className="text-[10px] text-gray-600 py-1">
+              {t("btp.patrolLoading")}
+            </div>
           ) : messages.length === 0 ? (
-            <div className="text-[10px] text-gray-700 py-1">无内容</div>
+            <div className="text-[10px] text-gray-700 py-1">
+              {t("btp.patrolEmpty")}
+            </div>
           ) : (
             messages.map((msg, i) => (
               <div key={i}>
@@ -574,14 +608,19 @@ function PatrolSessionRow({ session }: { session: PatrolSession }) {
                         : "text-gray-700"
                     }
                   >
-                    {msg.role === "assistant" ? "SM" : "系统"}
+                    {msg.role === "assistant"
+                      ? t("btp.smLabel")
+                      : t("btp.systemLabel")}
                   </span>
                   {msg.timestamp && (
                     <span className="ml-1 text-gray-700">
-                      {new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(msg.timestamp).toLocaleTimeString(
+                        lang === "zh" ? "zh-CN" : "en-US",
+                        {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
                     </span>
                   )}
                 </div>
@@ -610,6 +649,7 @@ function SprintPatrolSubsection({
   patrolSessions: PatrolSession[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useI18n();
 
   const startMs = sprint.startedAt ? new Date(sprint.startedAt).getTime() : 0;
   const endMs = sprint.endedAt ? new Date(sprint.endedAt).getTime() : Infinity;
@@ -629,7 +669,7 @@ function SprintPatrolSubsection({
         onClick={() => setExpanded((v) => !v)}
       >
         <span className="text-[10px] text-gray-600 flex-1">
-          🔍 SM 巡检 ({relevant.length})
+          {t("btp.smPatrol", { n: String(relevant.length) })}
         </span>
         <span className="text-[10px] text-gray-700 shrink-0">
           {expanded ? "▲" : "▼"}
@@ -669,6 +709,7 @@ export default function BacklogTasksPanel({
   const displayNames = useDisplayNames();
   const [patrolSessions, setPatrolSessions] = useState<PatrolSession[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryMap>({});
+  const { t } = useI18n();
 
   useEffect(() => {
     const load = async () => {
@@ -681,8 +722,8 @@ export default function BacklogTasksPanel({
       }
     };
     void load();
-    const t = setInterval(() => void load(), 30000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => void load(), 30000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -696,8 +737,8 @@ export default function BacklogTasksPanel({
       }
     };
     void load();
-    const t = setInterval(() => void load(), 10000);
-    return () => clearInterval(t);
+    const timer2 = setInterval(() => void load(), 10000);
+    return () => clearInterval(timer2);
   }, []);
 
   const taskMap = new Map(tasks.map((t) => [t.id, t]));
@@ -747,9 +788,9 @@ export default function BacklogTasksPanel({
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-16 text-gray-600">
             <div className="text-3xl mb-3">📋</div>
-            <div className="text-sm">暂无待办事项</div>
+            <div className="text-sm">{t("btp.empty")}</div>
             <div className="text-xs mt-1 text-gray-700">
-              点击「给PO派活」开始创建需求
+              {t("btp.emptySub")}
             </div>
           </div>
         ) : (
@@ -778,7 +819,7 @@ export default function BacklogTasksPanel({
               <div className="border border-gray-800 rounded-xl overflow-hidden">
                 <div className="px-4 py-2.5 bg-gray-800/30 border-b border-gray-800/60">
                   <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    🗂 待规划 Backlog ({unplannedItems.length} 项)
+                    {t("btp.unplanned", { n: String(unplannedItems.length) })}
                   </span>
                 </div>
                 <div className="p-3 space-y-2">

@@ -13,6 +13,7 @@ import BacklogTasksPanel from "@/components/BacklogTasksPanel";
 import POChatPanel from "@/components/POChatPanel";
 import AgentSetup from "@/components/AgentSetup";
 import ConversationViewer from "@/components/ConversationViewer";
+import { useI18n } from "@/lib/i18n";
 
 interface SSEPayload {
   type: string;
@@ -24,6 +25,7 @@ type PanelMode = "chat" | "conv";
 // ── Gateway status chip ────────────────────────────────────────────────────────
 function GatewayChip({ onSetup }: { onSetup: () => void }) {
   const [status, setStatus] = useState<GatewayStatus | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     const doFetch = () =>
@@ -32,8 +34,8 @@ function GatewayChip({ onSetup }: { onSetup: () => void }) {
         .then(setStatus)
         .catch(() => setStatus(null));
     doFetch();
-    const t = setInterval(doFetch, 5000);
-    return () => clearInterval(t);
+    const timer = setInterval(doFetch, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   const connected = status?.connected ?? false;
@@ -43,7 +45,7 @@ function GatewayChip({ onSetup }: { onSetup: () => void }) {
     return (
       <div className="flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        <span className="text-xs text-gray-500">Gateway 已连接</span>
+        <span className="text-xs text-gray-500">{t("gateway.connected")}</span>
       </div>
     );
   }
@@ -59,11 +61,25 @@ function GatewayChip({ onSetup }: { onSetup: () => void }) {
         }`}
       />
       <span className={connecting ? "text-yellow-500" : "text-red-400"}>
-        {connecting ? "Gateway 连接中" : "Gateway 未连接"}
+        {connecting ? t("gateway.connecting") : t("gateway.disconnected")}
       </span>
       <span className="text-gray-600 hover:text-gray-400 ml-0.5">
-        — 系统配置
+        {t("gateway.systemConfigLink")}
       </span>
+    </button>
+  );
+}
+
+// ── Lang toggle button ────────────────────────────────────────────────────────
+function LangToggle() {
+  const { lang, setLang, t } = useI18n();
+  return (
+    <button
+      onClick={() => setLang(lang === "zh" ? "en" : "zh")}
+      className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors font-mono"
+      title={lang === "zh" ? t("lang.switchToEn") : t("lang.switchToZh")}
+    >
+      {t("lang.label")}
     </button>
   );
 }
@@ -181,19 +197,21 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
     [],
   );
 
+  const { t } = useI18n();
+
   const panelTitle =
     panelMode === "chat"
-      ? "给 PO 派活"
+      ? t("panel.poTitle")
       : convTaskId
-        ? `${convTaskId} 工作记录`
-        : "对话记录";
+        ? t("panel.worklogTitle", { taskId: convTaskId })
+        : t("panel.convTitle");
 
   const panelSub =
     panelMode === "chat"
-      ? "Product Owner · 需求确认与规划"
+      ? t("panel.poSub")
       : convTaskId
-        ? `查看 ${convAgentId} 的任务工作过程`
-        : "查看 Agent 工作沟通过程";
+        ? t("panel.worklogSub", { agentId: convAgentId })
+        : t("panel.convSub");
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
@@ -211,14 +229,15 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
             onClick={() => openConv("sm", null)}
             className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors"
           >
-            💬 对话记录
+            {t("header.convPanel")}
           </button>
           <button
             onClick={onGoToSetup}
             className="text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded px-2 py-1 transition-colors"
           >
-            系统配置
+            {t("header.systemConfig")}
           </button>
+          <LangToggle />
         </div>
       </header>
 
@@ -248,7 +267,7 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
             <div
               className="w-1 shrink-0 cursor-col-resize bg-gray-800 hover:bg-blue-500/40 active:bg-blue-500/60 transition-colors"
               onMouseDown={handleResizeStart}
-              title="拖动调整面板宽度"
+              title={t("panel.dragHint")}
             />
 
             {/* Side panel */}
@@ -280,7 +299,7 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
                         : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
                     }`}
                   >
-                    派活
+                    {t("panel.tabChat")}
                   </button>
                   <button
                     onClick={() => setPanelMode("conv")}
@@ -290,12 +309,12 @@ function Dashboard({ onGoToSetup }: { onGoToSetup: () => void }) {
                         : "bg-gray-800 text-gray-500 hover:text-gray-300 hover:bg-gray-700"
                     }`}
                   >
-                    记录
+                    {t("panel.tabConv")}
                   </button>
                   <button
                     onClick={() => setPanelMode(null)}
                     className="ml-1 text-gray-600 hover:text-gray-300 w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 transition-colors text-sm"
-                    title="关闭面板"
+                    title={t("panel.close")}
                   >
                     ✕
                   </button>
