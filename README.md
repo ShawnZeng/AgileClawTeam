@@ -13,7 +13,11 @@
     <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
+[![npm](https://img.shields.io/npm/v/create-agileclawteam?logo=npm&label=create-agileclawteam&color=cb3837)](https://www.npmjs.com/package/create-agileclawteam)
+
 🌐 Language: **English** | [简体中文](./README_CN.md)
+
+📖 **[For Agent — Machine-readable project reference](./AGENT.md)**
 
   </div>
 
@@ -62,11 +66,21 @@ You only need to give the team a goal. The lobster crew will autonomously handle
 - Node.js >= 20
 - npm >= 10
 
-### 📦 Install
+### 📦 Get the Project
+
+**Option A — GitHub Template** (one click, no git history)
+
+Click **[Use this template →](https://github.com/ShawnZeng/AgileClawTeam/generate)** on GitHub, clone your new repo locally, then:
 
 ```bash
-git clone https://github.com/ShawnZeng/AgileClawTeam.git
-cd AgileClawTeam
+npm install
+```
+
+**Option B — npx** (scaffold locally in one command)
+
+```bash
+npx create-agileclawteam my-team
+cd my-team
 npm install
 ```
 

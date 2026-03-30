@@ -13,7 +13,11 @@
     <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
 </p>
 
+[![npm](https://img.shields.io/npm/v/create-agileclawteam?logo=npm&label=create-agileclawteam&color=cb3837)](https://www.npmjs.com/package/create-agileclawteam)
+
 🌐 语言：**简体中文** | [English](./README.md)
+
+📖 **[For Agent — 机器可读项目参考文档](./AGENT.md)**
 
 </div>
 
@@ -62,11 +66,21 @@ AgileClawTeam 把一个小型 Scrum 团队映射成一组可持续运行的 AI A
 - Node.js >= 20
 - npm >= 10
 
-### 📦 安装
+### 📦 获取项目
+
+**方式 A — GitHub Template**（一键创建，无 git 历史）
+
+点击 GitHub 上的 **[Use this template →](https://github.com/ShawnZeng/AgileClawTeam/generate)**，克隆你自己的仓库到本地，然后：
 
 ```bash
-git clone https://github.com/ShawnZeng/AgileClawTeam.git
-cd AgileClawTeam
+npm install
+```
+
+**方式 B — npx**（一条命令本地初始化）
+
+```bash
+npx create-agileclawteam my-team
+cd my-team
 npm install
 ```
 

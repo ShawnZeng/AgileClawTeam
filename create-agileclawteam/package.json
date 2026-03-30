@@ -1,0 +1,30 @@
+{
+  "name": "create-agileclawteam",
+  "version": "0.1.1",
+  "description": "Scaffold a new AgileClawTeam project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ShawnZeng/AgileClawTeam.git"
+  },
+  "keywords": [
+    "agileclawteam",
+    "openclaw",
+    "multi-agent",
+    "scrum",
+    "ai-agents",
+    "scaffold"
+  ],
+  "bin": {
+    "create-agileclawteam": "bin/cli.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  }
+}
