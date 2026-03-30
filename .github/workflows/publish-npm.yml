@@ -22,13 +22,8 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Publish package
+      - name: Publish create-agileclawteam
         run: npm publish
+        working-directory: create-agileclawteam
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
