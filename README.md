@@ -252,7 +252,7 @@ Contributions and discussion are welcome. The current project is already a worki
 - Join the WeChat group if you can speak Chinese:
 
   <p align="left">
-    <img src="./public/readme/wechat-group.png" alt="AgileClawTeam 微信交流群二维码" width="300" />
+    <img src="./public/wechat-group-qr.jpg" alt="AgileClawTeam 微信交流群二维码" width="300" />
   </p>
 
 - WeChat Channel：
